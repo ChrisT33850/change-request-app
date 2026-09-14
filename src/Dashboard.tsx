@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 import { generateWordDocument } from './utils/wordGenerator';
+import { exportDataAsJSON, getGitHubUploadInstructions } from './utils/dataExport';
 
 interface Signature {
   userId: string;
@@ -81,6 +82,12 @@ interface AuditLog {
   details: string;
 }
 
+interface ExportPopupState {
+  show: boolean;
+  filename: string;
+  instructions: string;
+}
+
 interface DashboardProps {
   currentUser: string;
 }
@@ -94,7 +101,15 @@ const AVAILABLE_STAKEHOLDERS = [
 ];
 
 const PROJECTS: { [key: string]: string } = {
-   'Noventum': 'NV',
+  'Infrastructure': 'INFRA',
+  'Modernisation Infrastructure': 'INFRA',
+  'Infrastructure Sécurité': 'SEC',
+  'DevOps': 'DEVOPS',
+  'Product': 'PROD',
+  'Cloud Migration': 'CLOUD',
+  'Security': 'SEC',
+  'Database': 'DB',
+  'Noventum': 'NV',
   'AI Pilot': 'AI',
   'Messaging session': 'MS',
   'Repair center case': 'RC',
@@ -106,10 +121,12 @@ const PROJECT_LIST = Object.keys(PROJECTS);
 
 const USER_NAMES: { [key: string]: string } = {
   'christophe': 'Christophe Trevise',
-  'marco.fallea': 'Marco.Fallea',
-  'michael.hamadouche': 'Michael Hamadouche',
-  'arianne.bryant': 'Arianne Bryant',
-  };
+  'marie.dupont': 'Marie Dupont',
+  'jean.bernard': 'Jean Bernard',
+  'pierre.leclerc': 'Pierre Leclerc',
+  'qa.team': 'QA Team',
+  'user.acceptance': 'User Acceptance',
+};
 
 const IMPACT_OPTIONS = ['Yes', 'No', 'NA', 'TBD'];
 
@@ -126,6 +143,12 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [crCounters, setCrCounters] = useState<{ [key: string]: number }>({});
   const [editingStatus, setEditingStatus] = useState<string | null>(null);
+  const [exportPopup, setExportPopup] = useState<ExportPopupState>({
+    show: false,
+    filename: '',
+    instructions: '',
+  });
+  const [instructionsCopied, setInstructionsCopied] = useState(false);
 
   const [formData, setFormData] = useState<CreateFormData>({
     title: '',
@@ -279,6 +302,27 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setAuditLogs(prev => [log, ...prev]);
   };
 
+  const triggerExport = (action: string) => {
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `change-requests-backup-${timestamp}_${action}.json`;
+    const instructions = getGitHubUploadInstructions(filename);
+    
+    setExportPopup({
+      show: true,
+      filename,
+      instructions,
+    });
+
+    // Télécharge automatiquement
+    exportDataAsJSON(changeRequests, auditLogs);
+  };
+
+  const copyInstructionsToClipboard = () => {
+    navigator.clipboard.writeText(exportPopup.instructions);
+    setInstructionsCopied(true);
+    setTimeout(() => setInstructionsCopied(false), 2000);
+  };
+
   const handleCreateCR = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -332,6 +376,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     logActivity(newCR.id, 'CREATED', `Created CR: ${newCR.title}`);
     setSuccessMessage(`✅ CR ${newCR.id} created successfully!`);
     
+    triggerExport('CREATE');
+    
     setFormData({
       title: '',
       project: '',
@@ -361,6 +407,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     logActivity(selectedCR.id, 'SIGNED', `Signed CR: ${selectedCR.title}`);
     setSuccessMessage(`✅ ${USER_NAMES[currentUser] || currentUser} signed ${selectedCR.id}!`);
     
+    triggerExport('SIGN');
+    
     setTimeout(() => {
       setSuccessMessage('');
     }, 3000);
@@ -372,6 +420,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       logActivity(crId, 'DELETED', `Deleted CR`);
       setSelectedCR(null);
       setSuccessMessage(`✅ CR ${crId} deleted!`);
+      
+      triggerExport('DELETE');
+      
       setTimeout(() => setSuccessMessage(''), 2000);
     }
   };
@@ -390,6 +441,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     
     setEditingStatus(null);
     setSuccessMessage(`✅ Status updated to ${newStatus}!`);
+    
+    triggerExport('STATUS_CHANGE');
+    
     setTimeout(() => setSuccessMessage(''), 2000);
   };
 
@@ -429,6 +483,56 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
               <button className="btn-submit" onClick={() => setShowSignaturePopup(false)}>
                 Got it!
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {exportPopup.show && (
+        <div className="modal-overlay" onClick={() => setExportPopup({ ...exportPopup, show: false })}>
+          <div className="modal-content export-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>💾 Backup Generated</h2>
+              <button className="btn-close" onClick={() => setExportPopup({ ...exportPopup, show: false })}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="export-success">
+                <p className="export-filename">📄 {exportPopup.filename}</p>
+                <p className="export-message">Your file has been downloaded. Follow the instructions below to upload it to GitHub.</p>
+              </div>
+
+              <div className="instructions-box">
+                <div className="instructions-header">
+                  <h3>📋 Upload Instructions</h3>
+                  <button 
+                    className={`btn-copy ${instructionsCopied ? 'copied' : ''}`}
+                    onClick={copyInstructionsToClipboard}
+                  >
+                    {instructionsCopied ? '✅ Copied!' : '📋 Copy'}
+                  </button>
+                </div>
+                <pre className="instructions-text">{exportPopup.instructions}</pre>
+              </div>
+
+              <div className="export-info">
+                <p>⏱️ <strong>Timeline:</strong> Changes will be visible in 2-3 minutes after upload</p>
+                <p>🔄 <strong>Auto-refresh:</strong> Close and reopen the app to see latest data from GitHub</p>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={() => setExportPopup({ ...exportPopup, show: false })}>
+                Close
+              </button>
+              <a 
+                href="https://github.com/ChrisT33850/change-request-app/tree/main/data"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-submit"
+              >
+                Open GitHub → /data/
+              </a>
             </div>
           </div>
         </div>
