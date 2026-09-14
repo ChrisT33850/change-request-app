@@ -1,0 +1,86 @@
+[
+  {
+    "timestamp": "2026-10-11T10:00:00Z",
+    "userId": "marie.dupont",
+    "action": "SIGNATURE",
+    "crId": "CC-2026-0005",
+    "details": "Signature validation - Approuvé, confirmer rollback plan"
+  },
+  {
+    "timestamp": "2026-10-11T11:30:00Z",
+    "userId": "jean.bernard",
+    "action": "SIGNATURE",
+    "crId": "CC-2026-0005",
+    "details": "Signature validation"
+  },
+  {
+    "timestamp": "2026-09-11T10:30:00Z",
+    "userId": "marie.dupont",
+    "action": "SIGNATURE",
+    "crId": "CC-2026-0006",
+    "details": "Signature validation"
+  },
+  {
+    "timestamp": "2026-09-11T11:00:00Z",
+    "userId": "jean.bernard",
+    "action": "SIGNATURE",
+    "crId": "CC-2026-0006",
+    "details": "Signature validation"
+  },
+  {
+    "timestamp": "2026-09-11T14:30:00Z",
+    "userId": "pierre.leclerc",
+    "action": "SIGNATURE",
+    "crId": "CC-2026-0006",
+    "details": "Signature approval"
+  },
+  {
+    "timestamp": "2026-09-07T09:00:00Z",
+    "userId": "christophe",
+    "action": "SIGNATURE",
+    "crId": "CC-2026-0004",
+    "details": "Signature validation"
+  },
+  {
+    "timestamp": "2026-09-07T10:15:00Z",
+    "userId": "jean.bernard",
+    "action": "SIGNATURE",
+    "crId": "CC-2026-0004",
+    "details": "Signature validation"
+  },
+  {
+    "timestamp": "2026-09-07T15:45:00Z",
+    "userId": "marie.dupont",
+    "action": "SIGNATURE",
+    "crId": "CC-2026-0004",
+    "details": "Signature validation"
+  },
+  {
+    "timestamp": "2026-09-07T16:30:00Z",
+    "userId": "pierre.leclerc",
+    "action": "SIGNATURE",
+    "crId": "CC-2026-0004",
+    "details": "Signature approval"
+  },
+  {
+    "timestamp": "2026-09-08T08:00:00Z",
+    "userId": "jean.bernard",
+    "action": "IMPLEMENTATION_START",
+    "crId": "CC-2026-0004",
+    "details": "Implementation started"
+  },
+  {
+    "timestamp": "2026-09-10T10:00:00Z",
+    "userId": "qa.team",
+    "action": "TESTING_PASSED",
+    "crId": "CC-2026-0004",
+    "details": "All tests passed"
+  },
+  {
+    "timestamp": "2026-09-10T20:00:00Z",
+    "userId": "jean.bernard",
+    "action": "DEPLOYMENT_COMPLETE",
+    "crId": "CC-2026-0004",
+    "details": "Deployed to production"
+  }
+]
