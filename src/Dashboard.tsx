@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
+import { generateWordDocument } from './utils/wordGenerator';
 
 interface Signature {
   userId: string;
@@ -8,6 +9,14 @@ interface Signature {
   timestamp: string;
   decision: string;
   feedback: string;
+}
+
+interface Impacts {
+  timeline: string;
+  costs: string;
+  quality: string;
+  teams: string;
+  knowledge: string;
 }
 
 interface CR {
@@ -26,6 +35,7 @@ interface CR {
     budgetEur: number;
     delayDays: number;
   };
+  impacts?: Impacts;
   implementation?: {
     description: string;
     technicalOwner: string;
@@ -35,6 +45,7 @@ interface CR {
     status: string;
   };
   risks?: string;
+  stakeholders?: string[];
   workflow?: {
     awaitingValidation?: {
       signatures: Signature[];
@@ -53,6 +64,11 @@ interface CreateFormData {
   implementationDesc: string;
   risks: string;
   stakeholders: string[];
+  impactTimeline: string;
+  impactCosts: string;
+  impactQuality: string;
+  impactTeams: string;
+  impactKnowledge: string;
 }
 
 interface AuditLog {
@@ -78,23 +94,24 @@ const AVAILABLE_STAKEHOLDERS = [
 ];
 
 const PROJECTS: { [key: string]: string } = {
-  'Noventum': 'NV',
-  'Messaging session': 'Ms',
+   'Noventum': 'NV',
+  'AI Pilot': 'AI',
+  'Messaging session': 'MS',
   'Repair center case': 'RC',
   'Knowledge': 'KL',
   'Service contract': 'SC',
-  };
+};
 
 const PROJECT_LIST = Object.keys(PROJECTS);
 
 const USER_NAMES: { [key: string]: string } = {
   'christophe': 'Christophe Trevise',
-  'marie.dupont': 'Marie Dupont',
-  'jean.bernard': 'Jean Bernard',
-  'pierre.leclerc': 'Pierre Leclerc',
-  'qa.team': 'QA Team',
-  'user.acceptance': 'User Acceptance',
-};
+  'marco.fallea': 'Marco.Fallea',
+  'michael.hamadouche': 'Michael Hamadouche',
+  'arianne.bryant': 'Arianne Bryant',
+  };
+
+const IMPACT_OPTIONS = ['Yes', 'No', 'NA', 'TBD'];
 
 const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [changeRequests, setChangeRequests] = useState<CR[]>([]);
@@ -104,9 +121,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [selectedCR, setSelectedCR] = useState<CR | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
+  const [showSignaturePopup, setShowSignaturePopup] = useState(false);
   const [loading, setLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState('');
   const [crCounters, setCrCounters] = useState<{ [key: string]: number }>({});
+  const [editingStatus, setEditingStatus] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<CreateFormData>({
     title: '',
@@ -118,6 +137,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     implementationDesc: '',
     risks: '',
     stakeholders: [],
+    impactTimeline: 'TBD',
+    impactCosts: 'TBD',
+    impactQuality: 'TBD',
+    impactTeams: 'TBD',
+    impactKnowledge: 'TBD',
   });
 
   useEffect(() => {
@@ -132,9 +156,17 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         requesterName: 'Christophe Trevise',
         dates: { created: '2026-10-10', deploymentPlanned: '2026-10-20' },
         impact: { budgetEur: 50000, delayDays: 7 },
+        impacts: {
+          timeline: 'Yes',
+          costs: 'Yes',
+          quality: 'No',
+          teams: 'Yes',
+          knowledge: 'No',
+        },
         implementation: { description: 'Plan de migration vers Azure...', technicalOwner: 'Jean Bernard' },
         tests: { report: 'Tests en cours - Performance +40%', status: 'IN_PROGRESS' },
         risks: 'Risque de downtime <5 min',
+        stakeholders: ['Christophe Trevise', 'marie.dupont', 'jean.bernard'],
         workflow: {
           awaitingValidation: {
             signatures: [
@@ -155,9 +187,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         requesterName: 'Marie Dupont',
         dates: { created: '2026-09-11', deploymentPlanned: '2026-09-15' },
         impact: { budgetEur: 5000, delayDays: 1 },
+        impacts: { timeline: 'No', costs: 'No', quality: 'No', teams: 'No', knowledge: 'No' },
         implementation: { description: 'Renouvellement SSL...', technicalOwner: 'Jean Bernard' },
         tests: { report: 'Tests complétés', status: 'PASSED' },
         risks: 'Downtime minimal',
+        stakeholders: ['Marie Dupont', 'jean.bernard'],
       },
       {
         id: 'CC-DEVOPS-001',
@@ -169,14 +203,15 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         requesterName: 'Jean Bernard',
         dates: { created: '2026-09-07', deploymentPlanned: '2026-09-10' },
         impact: { budgetEur: 25000, delayDays: 3 },
+        impacts: { timeline: 'Yes', costs: 'Yes', quality: 'Yes', teams: 'Yes', knowledge: 'Yes' },
         implementation: { description: 'Déploiement complet...', technicalOwner: 'Jean Bernard' },
         tests: { report: 'Tous les tests passés', status: 'PASSED' },
         risks: 'Aucun majeur',
+        stakeholders: ['Jean Bernard', 'marie.dupont'],
       },
     ];
     setChangeRequests(mockCRs);
     
-    // Initialiser les compteurs
     const counters: { [key: string]: number } = {};
     mockCRs.forEach(cr => {
       const prefix = cr.id.split('-')[1];
@@ -185,6 +220,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setCrCounters(counters);
     
     setLoading(false);
+    setShowSignaturePopup(true);
   }, []);
 
   const generateCRId = (project: string): string => {
@@ -252,6 +288,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }
 
     const newId = generateCRId(formData.project);
+    const requesterName = USER_NAMES[currentUser] || currentUser;
+    
+    // Requester est automatiquement stakeholder
+    const allStakeholders = [requesterName, ...formData.stakeholders];
+
     const newCR: CR = {
       id: newId,
       title: formData.title,
@@ -259,7 +300,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       description: formData.description,
       currentStatus: 'Draft',
       progressPercentage: 10,
-      requesterName: USER_NAMES[currentUser] || currentUser,
+      requesterName: requesterName,
       dates: {
         created: new Date().toISOString().split('T')[0],
         deploymentPlanned: formData.deploymentDate || null,
@@ -267,6 +308,13 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       impact: {
         budgetEur: parseInt(formData.budgetEur) || 0,
         delayDays: parseInt(formData.delayDays) || 0,
+      },
+      impacts: {
+        timeline: formData.impactTimeline,
+        costs: formData.impactCosts,
+        quality: formData.impactQuality,
+        teams: formData.impactTeams,
+        knowledge: formData.impactKnowledge,
       },
       implementation: {
         description: formData.implementationDesc,
@@ -277,6 +325,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         status: 'PENDING',
       },
       risks: formData.risks,
+      stakeholders: allStakeholders,
     };
 
     setChangeRequests(prev => [newCR, ...prev]);
@@ -293,6 +342,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       implementationDesc: '',
       risks: '',
       stakeholders: [],
+      impactTimeline: 'TBD',
+      impactCosts: 'TBD',
+      impactQuality: 'TBD',
+      impactTeams: 'TBD',
+      impactKnowledge: 'TBD',
     });
 
     setTimeout(() => {
@@ -312,6 +366,33 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }, 3000);
   };
 
+  const handleDeleteCR = (crId: string) => {
+    if (window.confirm('Are you sure you want to delete this CR?')) {
+      setChangeRequests(prev => prev.filter(cr => cr.id !== crId));
+      logActivity(crId, 'DELETED', `Deleted CR`);
+      setSelectedCR(null);
+      setSuccessMessage(`✅ CR ${crId} deleted!`);
+      setTimeout(() => setSuccessMessage(''), 2000);
+    }
+  };
+
+  const handleStatusChange = (crId: string, newStatus: string) => {
+    setChangeRequests(prev =>
+      prev.map(cr =>
+        cr.id === crId ? { ...cr, currentStatus: newStatus } : cr
+      )
+    );
+    logActivity(crId, 'STATUS_CHANGED', `Status changed to: ${newStatus}`);
+    
+    if (selectedCR?.id === crId) {
+      setSelectedCR({ ...selectedCR, currentStatus: newStatus });
+    }
+    
+    setEditingStatus(null);
+    setSuccessMessage(`✅ Status updated to ${newStatus}!`);
+    setTimeout(() => setSuccessMessage(''), 2000);
+  };
+
   const filteredCRs = filterStatus === 'All'
     ? changeRequests
     : changeRequests.filter((cr) => cr.currentStatus === filterStatus);
@@ -325,6 +406,31 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       {successMessage && (
         <div className="success-banner">
           {successMessage}
+        </div>
+      )}
+
+      {showSignaturePopup && (
+        <div className="modal-overlay" onClick={() => setShowSignaturePopup(false)}>
+          <div className="modal-content signature-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Welcome, {USER_NAMES[currentUser] || currentUser}! 👋</h2>
+              <button className="btn-close" onClick={() => setShowSignaturePopup(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p>You have pending signatures on some Change Requests.</p>
+              <p className="signature-count">
+                Review and sign the CRs that need your approval.
+              </p>
+              <p className="signature-hint">
+                Click "View Details" to see the CRs awaiting your signature.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-submit" onClick={() => setShowSignaturePopup(false)}>
+                Got it!
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -444,7 +550,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
       {selectedCR && (
         <div className="modal-overlay" onClick={() => setSelectedCR(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div>
                 <h2>{selectedCR.id}</h2>
@@ -471,9 +577,29 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 </div>
                 <div className="detail-item">
                   <label>Status</label>
-                  <div className="status-badge" style={{ backgroundColor: getStatusColor(selectedCR.currentStatus), display: 'inline-block' }}>
-                    {selectedCR.currentStatus}
-                  </div>
+                  {editingStatus === selectedCR.id ? (
+                    <select
+                      value={selectedCR.currentStatus}
+                      onChange={(e) => handleStatusChange(selectedCR.id, e.target.value)}
+                      autoFocus
+                    >
+                      <option>Draft</option>
+                      <option>Awaiting Validation</option>
+                      <option>Approved</option>
+                      <option>Implementation</option>
+                      <option>Testing</option>
+                      <option>Deployed</option>
+                    </select>
+                  ) : (
+                    <div className="status-row">
+                      <div className="status-badge" style={{ backgroundColor: getStatusColor(selectedCR.currentStatus), display: 'inline-block' }}>
+                        {selectedCR.currentStatus}
+                      </div>
+                      <button className="btn-edit-status" onClick={() => setEditingStatus(selectedCR.id)}>
+                        Change
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="detail-item">
                   <label>Budget</label>
@@ -484,6 +610,45 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                   <p>{selectedCR.impact.delayDays} days</p>
                 </div>
               </div>
+
+              {selectedCR.impacts && (
+                <div className="detail-row impacts-section">
+                  <label>Impacts</label>
+                  <div className="impacts-grid">
+                    <div className="impact-item">
+                      <span className="impact-label">Timeline:</span>
+                      <span className="impact-value">{selectedCR.impacts.timeline}</span>
+                    </div>
+                    <div className="impact-item">
+                      <span className="impact-label">Costs:</span>
+                      <span className="impact-value">{selectedCR.impacts.costs}</span>
+                    </div>
+                    <div className="impact-item">
+                      <span className="impact-label">Quality:</span>
+                      <span className="impact-value">{selectedCR.impacts.quality}</span>
+                    </div>
+                    <div className="impact-item">
+                      <span className="impact-label">Teams:</span>
+                      <span className="impact-value">{selectedCR.impacts.teams}</span>
+                    </div>
+                    <div className="impact-item">
+                      <span className="impact-label">Knowledge:</span>
+                      <span className="impact-value">{selectedCR.impacts.knowledge}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedCR.stakeholders && selectedCR.stakeholders.length > 0 && (
+                <div className="detail-row">
+                  <label>Stakeholders</label>
+                  <div className="stakeholders-list">
+                    {selectedCR.stakeholders.map((stakeholder, idx) => (
+                      <span key={idx} className="stakeholder-badge">{stakeholder}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {selectedCR.workflow?.awaitingValidation && (
                 <div className="detail-row pending-section">
@@ -534,7 +699,18 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
               <div className="modal-actions">
                 <button className="btn-edit">✏️ Edit</button>
                 <button className="btn-sign" onClick={handleSign}>✍️ Sign</button>
+                <button className="btn-download" onClick={() => generateWordDocument(selectedCR)}>
+                  📄 Download Word
+                </button>
               </div>
+
+              {selectedCR.currentStatus === 'Draft' && (
+                <div className="modal-actions danger">
+                  <button className="btn-delete" onClick={() => handleDeleteCR(selectedCR.id)}>
+                    🗑️ Delete CR
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -694,7 +870,55 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
                 <div className="form-row">
                   <div className="form-group full">
-                    <label>Stakeholders</label>
+                    <label>Impacts</label>
+                    <div className="impacts-form-grid">
+                      <div className="impact-form-item">
+                        <label>Timeline</label>
+                        <select name="impactTimeline" value={formData.impactTimeline} onChange={handleFormChange}>
+                          {IMPACT_OPTIONS.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="impact-form-item">
+                        <label>Costs</label>
+                        <select name="impactCosts" value={formData.impactCosts} onChange={handleFormChange}>
+                          {IMPACT_OPTIONS.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="impact-form-item">
+                        <label>Quality</label>
+                        <select name="impactQuality" value={formData.impactQuality} onChange={handleFormChange}>
+                          {IMPACT_OPTIONS.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="impact-form-item">
+                        <label>Teams</label>
+                        <select name="impactTeams" value={formData.impactTeams} onChange={handleFormChange}>
+                          {IMPACT_OPTIONS.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="impact-form-item">
+                        <label>Knowledge</label>
+                        <select name="impactKnowledge" value={formData.impactKnowledge} onChange={handleFormChange}>
+                          {IMPACT_OPTIONS.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>Stakeholders (Requester auto-added)</label>
                     <div className="stakeholder-list">
                       {AVAILABLE_STAKEHOLDERS.map(stakeholder => (
                         <label key={stakeholder} className="checkbox-label">
