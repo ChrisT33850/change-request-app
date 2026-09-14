@@ -1,0 +1,277 @@
+[
+  {
+    "id": "CC-2026-0005",
+    "title": "Réalisé M3 Octobre",
+    "project": "Modernisation Infrastructure",
+    "description": "Migration base de données vers Azure. Incluant tests de performance et documentation complète.",
+    "requester": "christophe",
+    "requesterName": "Christophe Trevise",
+    "stakeholders": ["marie.dupont", "jean.bernard", "pierre.leclerc"],
+    "dates": {
+      "created": "2026-10-10T08:00:00Z",
+      "deploymentPlanned": "2026-10-20T20:00:00Z"
+    },
+    "impact": {
+      "budgetEur": 50000,
+      "delayDays": 7
+    },
+    "implementation": {
+      "description": "Plan de migration vers Azure avec tests de performance et documentation technique complète.",
+      "technicalOwner": "jean.bernard"
+    },
+    "tests": {
+      "report": "Tests en cours - Performance +40% sur les requêtes DB. Pas de bugs critiques détectés.",
+      "status": "IN_PROGRESS"
+    },
+    "risks": "Risque de downtime <5 min. Impact sur les users France. Rollback possible en <30 min.",
+    "workflow": {
+      "draft": {
+        "status": "COMPLETED",
+        "completedAt": "2026-10-10T08:00:00Z"
+      },
+      "awaitingValidation": {
+        "status": "IN_PROGRESS",
+        "requiredSignatories": ["marie.dupont", "jean.bernard", "pierre.leclerc"],
+        "signatures": [
+          {
+            "userId": "marie.dupont",
+            "userName": "Marie Dupont",
+            "role": "IT Manager",
+            "timestamp": "2026-10-11T10:00:00Z",
+            "decision": "APPROVED",
+            "feedback": "Approuvé, confirmer rollback plan"
+          },
+          {
+            "userId": "jean.bernard",
+            "userName": "Jean Bernard",
+            "role": "Ops Manager",
+            "timestamp": "2026-10-11T11:30:00Z",
+            "decision": "APPROVED",
+            "feedback": ""
+          }
+        ],
+        "completedAt": null
+      },
+      "approved": {
+        "status": "PENDING",
+        "requiredSignatories": ["pierre.leclerc"],
+        "signatures": [],
+        "completedAt": null
+      },
+      "implementation": {
+        "status": "PENDING",
+        "startedBy": null,
+        "startedAt": null,
+        "completedAt": null
+      },
+      "testing": {
+        "status": "PENDING",
+        "requiredSignatories": [],
+        "signatures": [],
+        "completedAt": null
+      },
+      "deployed": {
+        "status": "PENDING",
+        "deployedBy": null,
+        "deployedAt": null
+      }
+    },
+    "currentStatus": "En Attente de validation",
+    "progressPercentage": 25
+  },
+  {
+    "id": "CC-2026-0006",
+    "title": "Migration SSL Certificates",
+    "project": "Infrastructure Sécurité",
+    "description": "Mise à jour des certificats SSL pour tous les serveurs de production.",
+    "requester": "marie.dupont",
+    "requesterName": "Marie Dupont",
+    "stakeholders": ["jean.bernard", "pierre.leclerc"],
+    "dates": {
+      "created": "2026-09-11T10:00:00Z",
+      "deploymentPlanned": "2026-09-15T22:00:00Z"
+    },
+    "impact": {
+      "budgetEur": 5000,
+      "delayDays": 1
+    },
+    "implementation": {
+      "description": "Renouvellement des certificats SSL avec rollback plan.",
+      "technicalOwner": "jean.bernard"
+    },
+    "tests": {
+      "report": "Tests complétés avec succès. Aucun problème détecté.",
+      "status": "PASSED"
+    },
+    "risks": "Downtime <2 min. Impact minimal.",
+    "workflow": {
+      "draft": {
+        "status": "COMPLETED",
+        "completedAt": "2026-09-11T10:00:00Z"
+      },
+      "awaitingValidation": {
+        "status": "COMPLETED",
+        "requiredSignatories": ["marie.dupont", "jean.bernard"],
+        "signatures": [
+          {
+            "userId": "marie.dupont",
+            "userName": "Marie Dupont",
+            "role": "IT Manager",
+            "timestamp": "2026-09-11T10:30:00Z",
+            "decision": "APPROVED",
+            "feedback": ""
+          },
+          {
+            "userId": "jean.bernard",
+            "userName": "Jean Bernard",
+            "role": "Ops Manager",
+            "timestamp": "2026-09-11T11:00:00Z",
+            "decision": "APPROVED",
+            "feedback": ""
+          }
+        ],
+        "completedAt": "2026-09-11T11:00:00Z"
+      },
+      "approved": {
+        "status": "COMPLETED",
+        "requiredSignatories": ["pierre.leclerc"],
+        "signatures": [
+          {
+            "userId": "pierre.leclerc",
+            "userName": "Pierre Leclerc",
+            "role": "Directeur Technique",
+            "timestamp": "2026-09-11T14:30:00Z",
+            "decision": "APPROVED",
+            "feedback": ""
+          }
+        ],
+        "completedAt": "2026-09-11T14:30:00Z"
+      },
+      "implementation": {
+        "status": "PENDING",
+        "startedBy": null,
+        "startedAt": null,
+        "completedAt": null
+      },
+      "testing": {
+        "status": "PENDING",
+        "requiredSignatories": [],
+        "signatures": [],
+        "completedAt": null
+      },
+      "deployed": {
+        "status": "PENDING",
+        "deployedBy": null,
+        "deployedAt": null
+      }
+    },
+    "currentStatus": "Approuvé",
+    "progressPercentage": 50
+  },
+  {
+    "id": "CC-2026-0004",
+    "title": "Change Management System",
+    "project": "DevOps",
+    "description": "Implémentation d'une nouvelle procédure de gestion des changements.",
+    "requester": "jean.bernard",
+    "requesterName": "Jean Bernard",
+    "stakeholders": ["christophe", "marie.dupont", "pierre.leclerc"],
+    "dates": {
+      "created": "2026-09-07T08:00:00Z",
+      "deploymentPlanned": "2026-09-10T20:00:00Z"
+    },
+    "impact": {
+      "budgetEur": 25000,
+      "delayDays": 3
+    },
+    "implementation": {
+      "description": "Déploiement complet du nouveau système de gestion des changements.",
+      "technicalOwner": "jean.bernard"
+    },
+    "tests": {
+      "report": "Tous les tests passés avec succès. Performance excellente.",
+      "status": "PASSED"
+    },
+    "risks": "Aucun risque majeur.",
+    "workflow": {
+      "draft": {
+        "status": "COMPLETED",
+        "completedAt": "2026-09-07T08:00:00Z"
+      },
+      "awaitingValidation": {
+        "status": "COMPLETED",
+        "requiredSignatories": ["christophe", "jean.bernard", "marie.dupont"],
+        "signatures": [
+          {
+            "userId": "christophe",
+            "userName": "Christophe Trevise",
+            "role": "Change Manager",
+            "timestamp": "2026-09-07T09:00:00Z",
+            "decision": "APPROVED",
+            "feedback": ""
+          },
+          {
+            "userId": "jean.bernard",
+            "userName": "Jean Bernard",
+            "role": "Ops Manager",
+            "timestamp": "2026-09-07T10:15:00Z",
+            "decision": "APPROVED",
+            "feedback": ""
+          },
+          {
+            "userId": "marie.dupont",
+            "userName": "Marie Dupont",
+            "role": "IT Manager",
+            "timestamp": "2026-09-07T15:45:00Z",
+            "decision": "APPROVED",
+            "feedback": ""
+          }
+        ],
+        "completedAt": "2026-09-07T15:45:00Z"
+      },
+      "approved": {
+        "status": "COMPLETED",
+        "requiredSignatories": ["pierre.leclerc"],
+        "signatures": [
+          {
+            "userId": "pierre.leclerc",
+            "userName": "Pierre Leclerc",
+            "role": "Directeur Technique",
+            "timestamp": "2026-09-07T16:30:00Z",
+            "decision": "APPROVED",
+            "feedback": ""
+          }
+        ],
+        "completedAt": "2026-09-07T16:30:00Z"
+      },
+      "implementation": {
+        "status": "COMPLETED",
+        "startedBy": "jean.bernard",
+        "startedAt": "2026-09-08T08:00:00Z",
+        "completedAt": "2026-09-09T20:00:00Z"
+      },
+      "testing": {
+        "status": "COMPLETED",
+        "requiredSignatories": [],
+        "signatures": [
+          {
+            "userId": "qa.team",
+            "userName": "QA Team",
+            "role": "QA Tester",
+            "timestamp": "2026-09-10T10:00:00Z",
+            "decision": "APPROVED",
+            "feedback": "All tests passed"
+          }
+        ],
+        "completedAt": "2026-09-10T10:00:00Z"
+      },
+      "deployed": {
+        "status": "COMPLETED",
+        "deployedBy": "jean.bernard",
+        "deployedAt": "2026-09-10T20:00:00Z"
+      }
+    },
+    "currentStatus": "Déployé",
+    "progressPercentage": 100
+  }
+]
