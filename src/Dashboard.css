@@ -1156,4 +1156,142 @@
     align-items: flex-start;
   }
 }
+/* EXPORT MODAL */
+.export-modal {
+  max-width: 700px;
+}
+
+.export-success {
+  background: #d1fae5;
+  border: 1px solid #6ee7b7;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.export-filename {
+  font-size: 14px;
+  font-weight: 600;
+  color: #065f46;
+  margin: 0 0 8px 0;
+}
+
+.export-message {
+  font-size: 13px;
+  color: #047857;
+  margin: 0;
+}
+
+.instructions-box {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.instructions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #d1d5db;
+  background: #e5e7eb;
+}
+
+.instructions-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.btn-copy {
+  padding: 6px 12px;
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-copy:hover {
+  background: #00b0db;
+  color: white;
+  border-color: #00b0db;
+}
+
+.btn-copy.copied {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.instructions-text {
+  margin: 0;
+  padding: 16px;
+  background: white;
+  font-size: 12px;
+  color: #374151;
+  font-family: 'Courier New', monospace;
+  overflow-x: auto;
+  max-height: 300px;
+  line-height: 1.5;
+}
+
+.export-info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.export-info p {
+  margin: 8px 0;
+  font-size: 12px;
+  color: #0c4a6e;
+  line-height: 1.5;
+}
+
+.export-info p:first-child {
+  margin-top: 0;
+}
+
+.export-info p:last-child {
+  margin-bottom: 0;
+}
+
+.export-info strong {
+  font-weight: 600;
+  color: #0369a1;
+}
+
+/* RESPONSIVE - EXPORT */
+@media (max-width: 768px) {
+  .export-modal {
+    max-width: 95vw;
+  }
+
+  .instructions-text {
+    font-size: 11px;
+    max-height: 200px;
+  }
+
+  .instructions-header {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .btn-copy {
+    align-self: flex-end;
+  }
+}
 }
