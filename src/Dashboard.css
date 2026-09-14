@@ -62,13 +62,13 @@
 
 .filter-group select:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #00b0db;
+  box-shadow: 0 0 0 3px rgba(0, 176, 219, 0.1);
 }
 
 .btn-create {
   padding: 10px 20px;
-  background: #667eea;
+  background: #00b0db;
   color: white;
   border: none;
   border-radius: 6px;
@@ -80,7 +80,7 @@
 }
 
 .btn-create:hover {
-  background: #5568d3;
+  background: #0099c1;
   transform: translateY(-1px);
 }
 
@@ -111,7 +111,7 @@
 }
 
 .toggle-btn.active {
-  background: #667eea;
+  background: #00b0db;
   color: white;
 }
 
@@ -161,7 +161,7 @@
 .id-cell {
   font-family: monospace;
   font-weight: 600;
-  color: #667eea;
+  color: #00b0db;
   font-size: 13px;
 }
 
@@ -212,7 +212,7 @@
 
 .btn-detail {
   padding: 8px 16px;
-  background: #667eea;
+  background: #00b0db;
   color: white;
   border: none;
   border-radius: 4px;
@@ -224,7 +224,7 @@
 }
 
 .btn-detail:hover {
-  background: #5568d3;
+  background: #0099c1;
 }
 
 /* KANBAN VIEW */
@@ -306,7 +306,7 @@
   font-family: monospace;
   font-size: 11px;
   font-weight: 600;
-  color: #667eea;
+  color: #00b0db;
 }
 
 .card-title {
@@ -479,7 +479,7 @@
 
 .progress-fill {
   height: 100%;
-  background: #667eea;
+  background: #00b0db;
   transition: width 0.3s;
 }
 
@@ -515,8 +515,8 @@
 .btn-edit:hover,
 .btn-sign:hover {
   background: #f9fafb;
-  border-color: #667eea;
-  color: #667eea;
+  border-color: #00b0db;
+  color: #00b0db;
 }
 
 /* RESPONSIVE */
