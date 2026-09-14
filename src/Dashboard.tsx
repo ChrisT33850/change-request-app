@@ -78,17 +78,12 @@ const AVAILABLE_STAKEHOLDERS = [
 ];
 
 const PROJECTS: { [key: string]: string } = {
-  'Infrastructure': 'INFRA',
-  'Modernisation Infrastructure': 'INFRA',
-  'Infrastructure Sécurité': 'SEC',
-  'DevOps': 'DEVOPS',
-  'Product': 'PROD',
-  'Cloud Migration': 'CLOUD',
-  'Security': 'SEC',
-  'Database': 'DB',
   'Noventum': 'NV',
-  'AI Pilot': 'AI',
-};
+  'Messaging session': 'Ms',
+  'Repair center case': 'RC',
+  'Knowledge': 'KL',
+  'Service contract': 'SC',
+  };
 
 const PROJECT_LIST = Object.keys(PROJECTS);
 
