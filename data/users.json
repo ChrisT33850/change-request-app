@@ -1,0 +1,30 @@
+[
+  {
+    "userId": "christophe",
+    "password": "password123",
+    "fullName": "Christophe Trevise",
+    "email": "christophe.trevise@acteongroup.com",
+    "role": "Change Manager"
+  },
+  {
+    "userId": "marie.dupont",
+    "password": "marie123",
+    "fullName": "Marie Dupont",
+    "email": "marie.dupont@acteongroup.com",
+    "role": "IT Manager"
+  },
+  {
+    "userId": "jean.bernard",
+    "password": "jean123",
+    "fullName": "Jean Bernard",
+    "email": "jean.bernard@acteongroup.com",
+    "role": "Ops Manager"
+  },
+  {
+    "userId": "pierre.leclerc",
+    "password": "pierre123",
+    "fullName": "Pierre Leclerc",
+    "email": "pierre.leclerc@acteongroup.com",
+    "role": "Directeur Technique"
+  }
+]
