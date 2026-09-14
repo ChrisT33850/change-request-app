@@ -930,4 +930,230 @@
     width: 100%;
   }
 }
+  /* DOWNLOAD & DELETE BUTTONS */
+.btn-download {
+  flex: 1;
+  padding: 12px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-download:hover {
+  background: #059669;
+}
+
+.btn-delete {
+  flex: 1;
+  padding: 12px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-delete:hover {
+  background: #dc2626;
+}
+
+.modal-actions.danger {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* EDIT STATUS BUTTON */
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-edit-status {
+  padding: 6px 12px;
+  background: #00b0db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-edit-status:hover {
+  background: #0099c1;
+}
+
+.detail-modal select[name=""] {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* IMPACTS SECTION */
+.impacts-section {
+  background: #f0f9ff;
+  padding: 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border-left: 4px solid #0284c7;
+}
+
+.impacts-section label {
+  color: #0c4a6e;
+}
+
+.impacts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.impact-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #bfdbfe;
+}
+
+.impact-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 13px;
+}
+
+.impact-value {
+  background: #dbeafe;
+  color: #0c4a6e;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* IMPACTS FORM */
+.impacts-form-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.impact-form-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.impact-form-item label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.impact-form-item select {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  background-color: white;
+}
+
+.impact-form-item select:focus {
+  outline: none;
+  border-color: #00b0db;
+  box-shadow: 0 0 0 2px rgba(0, 176, 219, 0.1);
+}
+
+/* STAKEHOLDERS SECTION */
+.stakeholders-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.stakeholder-badge {
+  display: inline-block;
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #0284c7;
+}
+
+/* SIGNATURE POPUP */
+.signature-popup {
+  max-width: 500px;
+}
+
+.signature-count {
+  font-size: 16px;
+  font-weight: 600;
+  color: #00b0db;
+  margin: 16px 0 8px;
+}
+
+.signature-hint {
+  font-size: 13px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* RESPONSIVE - IMPACTS */
+@media (max-width: 768px) {
+  .impacts-form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .impacts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .impact-item {
+    flex-direction: column;
+  }
+
+  .impact-label {
+    margin-bottom: 4px;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .btn-download,
+  .btn-delete {
+    width: 100%;
+  }
+
+  .status-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
 }
