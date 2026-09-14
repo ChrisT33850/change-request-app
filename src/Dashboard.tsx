@@ -77,16 +77,20 @@ const AVAILABLE_STAKEHOLDERS = [
   'user.acceptance',
 ];
 
-const PROJECTS = [
-  'Infrastructure',
-  'Modernisation Infrastructure',
-  'Infrastructure Sécurité',
-  'DevOps',
-  'Product',
-  'Cloud Migration',
-  'Security',
-  'Database',
-];
+const PROJECTS: { [key: string]: string } = {
+  'Infrastructure': 'INFRA',
+  'Modernisation Infrastructure': 'INFRA',
+  'Infrastructure Sécurité': 'SEC',
+  'DevOps': 'DEVOPS',
+  'Product': 'PROD',
+  'Cloud Migration': 'CLOUD',
+  'Security': 'SEC',
+  'Database': 'DB',
+  'Noventum': 'NV',
+  'AI Pilot': 'AI',
+};
+
+const PROJECT_LIST = Object.keys(PROJECTS);
 
 const USER_NAMES: { [key: string]: string } = {
   'christophe': 'Christophe Trevise',
@@ -104,9 +108,10 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [filterStatus, setFilterStatus] = useState('All');
   const [selectedCR, setSelectedCR] = useState<CR | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showActivityTab, setShowActivityTab] = useState(false);
+  const [showActivityModal, setShowActivityModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState('');
+  const [crCounters, setCrCounters] = useState<{ [key: string]: number }>({});
 
   const [formData, setFormData] = useState<CreateFormData>({
     title: '',
@@ -123,7 +128,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   useEffect(() => {
     const mockCRs: CR[] = [
       {
-        id: 'CC-2026-0005',
+        id: 'CC-INFRA-001',
         title: 'Réalisé M3 Octobre',
         project: 'Modernisation Infrastructure',
         description: 'Migration base de données vers Azure avec tests de performance et documentation complète.',
@@ -146,7 +151,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         },
       },
       {
-        id: 'CC-2026-0006',
+        id: 'CC-SEC-001',
         title: 'Migration SSL Certificates',
         project: 'Infrastructure Sécurité',
         description: 'Mise à jour des certificats SSL pour tous les serveurs de production.',
@@ -160,7 +165,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         risks: 'Downtime minimal',
       },
       {
-        id: 'CC-2026-0004',
+        id: 'CC-DEVOPS-001',
         title: 'Change Management System',
         project: 'DevOps',
         description: 'Implémentation d\'une nouvelle procédure de gestion des changements.',
@@ -175,8 +180,27 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       },
     ];
     setChangeRequests(mockCRs);
+    
+    // Initialiser les compteurs
+    const counters: { [key: string]: number } = {};
+    mockCRs.forEach(cr => {
+      const prefix = cr.id.split('-')[1];
+      counters[prefix] = Math.max(counters[prefix] || 0, parseInt(cr.id.split('-')[2]) || 0);
+    });
+    setCrCounters(counters);
+    
     setLoading(false);
   }, []);
+
+  const generateCRId = (project: string): string => {
+    const prefix = PROJECTS[project] || 'GEN';
+    const counter = (crCounters[prefix] || 0) + 1;
+    setCrCounters(prev => ({
+      ...prev,
+      [prefix]: counter
+    }));
+    return `CC-${prefix}-${String(counter).padStart(3, '0')}`;
+  };
 
   const getPendingSigners = (cr: CR): string[] => {
     const awaitingVal = cr.workflow?.awaitingValidation;
@@ -232,8 +256,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       return;
     }
 
+    const newId = generateCRId(formData.project);
     const newCR: CR = {
-      id: `CC-2026-${Math.floor(Math.random() * 10000)}`,
+      id: newId,
       title: formData.title,
       project: formData.project,
       description: formData.description,
@@ -325,7 +350,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         </div>
 
         <div className="right-section">
-          <button className="btn-activity" onClick={() => setShowActivityTab(!showActivityTab)}>
+          <button className="btn-activity" onClick={() => setShowActivityModal(true)}>
             📋 My Activity ({userActivityLogs.length})
           </button>
           <button className="btn-create" onClick={() => setShowCreateModal(true)}>
@@ -342,29 +367,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         </div>
       </div>
 
-      {showActivityTab && (
-        <div className="activity-panel">
-          <div className="activity-header">
-            <h3>Your Activity</h3>
-            <button className="btn-close" onClick={() => setShowActivityTab(false)}>✕</button>
-          </div>
-          <div className="activity-list">
-            {userActivityLogs.length === 0 ? (
-              <p className="no-activity">No activity yet</p>
-            ) : (
-              userActivityLogs.map(log => (
-                <div key={log.id} className="activity-item">
-                  <div className="activity-time">{new Date(log.timestamp).toLocaleString()}</div>
-                  <div className="activity-action">{log.action}</div>
-                  <div className="activity-cr">{log.crId}</div>
-                  <div className="activity-detail">{log.details}</div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
       {viewMode === 'tableau' ? (
         <div className="tableau-view">
           <table className="cr-table">
@@ -373,6 +375,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 <th>ID</th>
                 <th>Title</th>
                 <th>Project</th>
+                <th>Created</th>
                 <th>Requester</th>
                 <th>Status</th>
                 <th>Signatures</th>
@@ -390,6 +393,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                     <td className="id-cell">{cr.id}</td>
                     <td className="title-cell">{cr.title}</td>
                     <td>{cr.project}</td>
+                    <td className="date-cell">{cr.dates.created}</td>
                     <td>{cr.requesterName}</td>
                     <td>
                       <div className="status-badge" style={{ backgroundColor: getStatusColor(cr.currentStatus) }}>
@@ -541,6 +545,46 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         </div>
       )}
 
+      {showActivityModal && (
+        <div className="modal-overlay" onClick={() => setShowActivityModal(false)}>
+          <div className="modal-content activity-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>My Activity</h2>
+              <button className="btn-close" onClick={() => setShowActivityModal(false)}>✕</button>
+            </div>
+
+            <div className="modal-body activity-body">
+              {userActivityLogs.length === 0 ? (
+                <p className="no-activity">No activity yet</p>
+              ) : (
+                <div className="activity-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Timestamp</th>
+                        <th>Action</th>
+                        <th>CR ID</th>
+                        <th>Details</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {userActivityLogs.map(log => (
+                        <tr key={log.id}>
+                          <td className="activity-time">{new Date(log.timestamp).toLocaleString()}</td>
+                          <td className="activity-action">{log.action}</td>
+                          <td className="activity-cr">{log.crId}</td>
+                          <td className="activity-detail">{log.details}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCreateModal && (
         <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
           <div className="modal-content create-modal" onClick={(e) => e.stopPropagation()}>
@@ -575,7 +619,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                       required
                     >
                       <option value="">Select a project</option>
-                      {PROJECTS.map(proj => (
+                      {PROJECT_LIST.map(proj => (
                         <option key={proj} value={proj}>{proj}</option>
                       ))}
                     </select>
