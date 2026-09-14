@@ -93,22 +93,13 @@ interface DashboardProps {
 }
 
 const AVAILABLE_STAKEHOLDERS = [
-  'marie.dupont',
-  'jean.bernard',
-  'pierre.leclerc',
-  'qa.team',
-  'user.acceptance',
+  'marco.fallea',
+  'michael.hamadouche',
+  'arianne.bryant',
+  
 ];
 
 const PROJECTS: { [key: string]: string } = {
-  'Infrastructure': 'INFRA',
-  'Modernisation Infrastructure': 'INFRA',
-  'Infrastructure Sécurité': 'SEC',
-  'DevOps': 'DEVOPS',
-  'Product': 'PROD',
-  'Cloud Migration': 'CLOUD',
-  'Security': 'SEC',
-  'Database': 'DB',
   'Noventum': 'NV',
   'AI Pilot': 'AI',
   'Messaging session': 'MS',
