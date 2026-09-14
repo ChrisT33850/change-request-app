@@ -43,9 +43,29 @@ interface CR {
   };
 }
 
+interface CreateFormData {
+  title: string;
+  project: string;
+  description: string;
+  deploymentDate: string;
+  budgetEur: string;
+  delayDays: string;
+  implementationDesc: string;
+  risks: string;
+  stakeholders: string[];
+}
+
 interface DashboardProps {
   currentUser: string;
 }
+
+const AVAILABLE_STAKEHOLDERS = [
+  'marie.dupont',
+  'jean.bernard',
+  'pierre.leclerc',
+  'qa.team',
+  'user.acceptance',
+];
 
 const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [changeRequests, setChangeRequests] = useState<CR[]>([]);
@@ -54,6 +74,19 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [selectedCR, setSelectedCR] = useState<CR | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const [formData, setFormData] = useState<CreateFormData>({
+    title: '',
+    project: '',
+    description: '',
+    deploymentDate: '',
+    budgetEur: '',
+    delayDays: '',
+    implementationDesc: '',
+    risks: '',
+    stakeholders: [],
+  });
 
   useEffect(() => {
     const mockCRs: CR[] = [
@@ -132,6 +165,76 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }
   };
 
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleStakeholderToggle = (stakeholder: string) => {
+    setFormData(prev => ({
+      ...prev,
+      stakeholders: prev.stakeholders.includes(stakeholder)
+        ? prev.stakeholders.filter(s => s !== stakeholder)
+        : [...prev.stakeholders, stakeholder]
+    }));
+  };
+
+  const handleCreateCR = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.title || !formData.project) {
+      alert('Titre et Projet sont obligatoires!');
+      return;
+    }
+
+    const newCR: CR = {
+      id: `CC-2026-${Math.floor(Math.random() * 10000)}`,
+      title: formData.title,
+      project: formData.project,
+      description: formData.description,
+      currentStatus: 'Brouillon',
+      progressPercentage: 10,
+      requesterName: currentUser,
+      dates: {
+        created: new Date().toISOString().split('T')[0],
+        deploymentPlanned: formData.deploymentDate || null,
+      },
+      impact: {
+        budgetEur: parseInt(formData.budgetEur) || 0,
+        delayDays: parseInt(formData.delayDays) || 0,
+      },
+      implementation: {
+        description: formData.implementationDesc,
+        technicalOwner: '',
+      },
+      tests: {
+        report: '',
+        status: 'PENDING',
+      },
+      risks: formData.risks,
+    };
+
+    setChangeRequests(prev => [newCR, ...prev]);
+    setSuccessMessage(`✅ CR ${newCR.id} créée avec succès!`);
+    
+    setFormData({
+      title: '',
+      project: '',
+      description: '',
+      deploymentDate: '',
+      budgetEur: '',
+      delayDays: '',
+      implementationDesc: '',
+      risks: '',
+      stakeholders: [],
+    });
+
+    setTimeout(() => {
+      setShowCreateModal(false);
+      setSuccessMessage('');
+    }, 2000);
+  };
+
   const filteredCRs = filterStatus === 'Tous'
     ? changeRequests
     : changeRequests.filter((cr) => cr.currentStatus === filterStatus);
@@ -140,6 +243,12 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
   return (
     <div className="dashboard">
+      {successMessage && (
+        <div className="success-banner">
+          {successMessage}
+        </div>
+      )}
+
       <div className="top-bar">
         <div className="left-section">
           <div className="filter-group">
@@ -332,16 +441,141 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
       {showCreateModal && (
         <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content create-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>➕ Créer une nouvelle CR</h2>
               <button className="btn-close" onClick={() => setShowCreateModal(false)}>✕</button>
             </div>
-            <div className="modal-body">
-              <p style={{ textAlign: 'center', color: '#999', padding: '40px 20px' }}>
-                Fonctionnalité en cours de développement...
-              </p>
-            </div>
+
+            <form onSubmit={handleCreateCR} className="create-form">
+              <div className="modal-body">
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>Titre *</label>
+                    <input
+                      type="text"
+                      name="title"
+                      value={formData.title}
+                      onChange={handleFormChange}
+                      placeholder="Ex: Migration base de données"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Projet *</label>
+                    <input
+                      type="text"
+                      name="project"
+                      value={formData.project}
+                      onChange={handleFormChange}
+                      placeholder="Ex: Infrastructure"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Date déploiement souhaitée</label>
+                    <input
+                      type="date"
+                      name="deploymentDate"
+                      value={formData.deploymentDate}
+                      onChange={handleFormChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Budget (€)</label>
+                    <input
+                      type="number"
+                      name="budgetEur"
+                      value={formData.budgetEur}
+                      onChange={handleFormChange}
+                      placeholder="50000"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Délai (jours)</label>
+                    <input
+                      type="number"
+                      name="delayDays"
+                      value={formData.delayDays}
+                      onChange={handleFormChange}
+                      placeholder="7"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>Description</label>
+                    <textarea
+                      name="description"
+                      value={formData.description}
+                      onChange={handleFormChange}
+                      placeholder="Description détaillée du changement..."
+                      rows={4}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>Plan d'implementation</label>
+                    <textarea
+                      name="implementationDesc"
+                      value={formData.implementationDesc}
+                      onChange={handleFormChange}
+                      placeholder="Détails du plan d'implementation..."
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>Risques</label>
+                    <textarea
+                      name="risks"
+                      value={formData.risks}
+                      onChange={handleFormChange}
+                      placeholder="Identifiez les risques potentiels..."
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>Personnes impliquées (stakeholders)</label>
+                    <div className="stakeholder-list">
+                      {AVAILABLE_STAKEHOLDERS.map(stakeholder => (
+                        <label key={stakeholder} className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={formData.stakeholders.includes(stakeholder)}
+                            onChange={() => handleStakeholderToggle(stakeholder)}
+                          />
+                          {stakeholder}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn-cancel" onClick={() => setShowCreateModal(false)}>
+                  Annuler
+                </button>
+                <button type="submit" className="btn-submit">
+                  ✅ Créer la CR
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
