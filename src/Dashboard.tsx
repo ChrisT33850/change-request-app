@@ -118,3 +118,114 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       case 'Approuvé': return 'badge-approved';
       case 'Implementation en cours': return 'badge-impl';
       case 'En tests': return 'badge-testing';
+      case 'Déployé': return 'badge-deployed';
+      default: return '';
+    }
+  };
+
+  const filteredCRs = filterStatus === 'Tous'
+    ? changeRequests
+    : changeRequests.filter((cr) => cr.currentStatus === filterStatus);
+
+  if (loading) return <div className="dashboard"><p>Chargement...</p></div>;
+
+  return (
+    <div className="dashboard">
+      <div className="controls">
+        <div className="filter-group">
+          <label>Filtrer:</label>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+            <option>Tous les statuts</option>
+            <option>Brouillon</option>
+            <option>En Attente de validation</option>
+            <option>Approuvé</option>
+            <option>Implementation en cours</option>
+            <option>En tests</option>
+            <option>Déployé</option>
+          </select>
+        </div>
+        <div className="view-toggle">
+          <button className={`toggle-btn ${viewMode === 'tableau' ? 'active' : ''}`} onClick={() => setViewMode('tableau')}>
+            📊 Tableau
+          </button>
+          <button className={`toggle-btn ${viewMode === 'kanban' ? 'active' : ''}`} onClick={() => setViewMode('kanban')}>
+            📋 Kanban
+          </button>
+        </div>
+      </div>
+
+      {viewMode === 'tableau' ? (
+        <div className="tableau-view">
+          <table className="cr-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>Titre</th><th>Projet</th><th>Demandeur</th><th>Statut</th>
+                <th>Signatures</th><th>Budget / Délai</th><th>Dates</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredCRs.map((cr) => {
+                const pending = getPendingSigners(cr);
+                const sigs = cr.workflow.awaitingValidation?.signatures.length || 0;
+                return (
+                  <tr key={cr.id}>
+                    <td className="id-cell">{cr.id}</td>
+                    <td>{cr.title}</td><td>{cr.project}</td><td>{cr.requesterName}</td>
+                    <td><span className={`badge ${getStatusBadgeClass(cr.currentStatus)}`}>{cr.currentStatus}</span></td>
+                    <td>✓ {sigs} {pending.length > 0 && `⏳ ${pending.length}`}</td>
+                    <td>€{(cr.impact.budgetEur/1000).toFixed(0)}k / {cr.impact.delayDays}j</td>
+                    <td>{cr.dates.created} {cr.dates.deploymentPlanned && `→ ${cr.dates.deploymentPlanned}`}</td>
+                    <td><button className="btn-view" onClick={() => setSelectedCR(cr)}>Voir</button></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="kanban-view">
+          {['Brouillon', 'En Attente de validation', 'Approuvé', 'Implementation en cours', 'En tests', 'Déployé'].map((status) => {
+            const statusCRs = changeRequests.filter((cr) => cr.currentStatus === status);
+            return (
+              <div key={status} className="kanban-column">
+                <div className="column-header"><h3>{status}</h3><span>{statusCRs.length}</span></div>
+                <div className="column-cards">
+                  {statusCRs.map((cr) => (
+                    <div key={cr.id} className="kanban-card" onClick={() => setSelectedCR(cr)}>
+                      <p className="card-title">{cr.title}</p>
+                      <p className="card-id">{cr.id}</p>
+                      <div className="card-meta"><span>€{(cr.impact.budgetEur/1000).toFixed(0)}k</span><span>{cr.impact.delayDays}j</span></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {selectedCR && (
+        <div className="detail-modal" onClick={() => setSelectedCR(null)}>
+          <div className="detail-content" onClick={(e) => e.stopPropagation()}>
+            <button className="close-btn" onClick={() => setSelectedCR(null)}>✕</button>
+            <h2>{selectedCR.id} - {selectedCR.title}</h2>
+            <div className="detail-body">
+              <p>{selectedCR.description}</p>
+              <div style={{marginTop: '16px'}}>
+                <p><strong>Demandeur:</strong> {selectedCR.requesterName}</p>
+                <p><strong>Budget:</strong> €{selectedCR.impact.budgetEur.toLocaleString()} / {selectedCR.impact.delayDays}j</p>
+                <p><strong>Dates:</strong> {selectedCR.dates.created} → {selectedCR.dates.deploymentPlanned}</p>
+              </div>
+              <div className="progress-bar" style={{marginTop: '16px'}}>
+                <div className="progress-fill" style={{width: `${selectedCR.progressPercentage}%`}}></div>
+              </div>
+              <p>{selectedCR.progressPercentage}% complété</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Dashboard;
