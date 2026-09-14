@@ -1,20 +1,20 @@
 {
-  "name": "change-request-dashboard",
-  "version": "1.0.0",
+  "name": "change-request-app",
+  "version": "0.1.0",
   "private": true,
-  "homepage": "https://christophet33850.github.io/change-request-app",
+  "homepage": "https://christ33850.github.io/change-request-app",
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "axios": "^1.6.0",
     "date-fns": "^2.30.0",
-    "typescript": "^4.9.5",
+    "docx": "^8.5.0",
+    "file-saver": "^2.0.5",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@types/node": "^18.0.0",
-    "web-vitals": "^2.1.4",
-    "docx": "^8.5.0",
+    "web-vitals": "^2.1.4"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -23,13 +23,20 @@
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
-    "extends": ["react-app"]
+    "extends": [
+      "react-app"
+    ]
   },
   "browserslist": {
-    "production": [">0.2%", "not dead", "not op_mini all"],
-    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
-  },
-  "devDependencies": {
-    "gh-pages": "^6.0.0"
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   }
 }
