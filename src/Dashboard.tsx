@@ -55,6 +55,16 @@ interface CreateFormData {
   stakeholders: string[];
 }
 
+interface AuditLog {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  action: string;
+  crId: string;
+  details: string;
+}
+
 interface DashboardProps {
   currentUser: string;
 }
@@ -67,12 +77,34 @@ const AVAILABLE_STAKEHOLDERS = [
   'user.acceptance',
 ];
 
+const PROJECTS = [
+  'Infrastructure',
+  'Modernisation Infrastructure',
+  'Infrastructure Sécurité',
+  'DevOps',
+  'Product',
+  'Cloud Migration',
+  'Security',
+  'Database',
+];
+
+const USER_NAMES: { [key: string]: string } = {
+  'christophe': 'Christophe Trevise',
+  'marie.dupont': 'Marie Dupont',
+  'jean.bernard': 'Jean Bernard',
+  'pierre.leclerc': 'Pierre Leclerc',
+  'qa.team': 'QA Team',
+  'user.acceptance': 'User Acceptance',
+};
+
 const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [changeRequests, setChangeRequests] = useState<CR[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [viewMode, setViewMode] = useState<'tableau' | 'kanban'>('tableau');
   const [filterStatus, setFilterStatus] = useState('All');
   const [selectedCR, setSelectedCR] = useState<CR | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showActivityTab, setShowActivityTab] = useState(false);
   const [loading, setLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -179,6 +211,19 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }));
   };
 
+  const logActivity = (crId: string, action: string, details: string) => {
+    const log: AuditLog = {
+      id: `LOG-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      userId: currentUser,
+      userName: USER_NAMES[currentUser] || currentUser,
+      action,
+      crId,
+      details,
+    };
+    setAuditLogs(prev => [log, ...prev]);
+  };
+
   const handleCreateCR = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -194,7 +239,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       description: formData.description,
       currentStatus: 'Draft',
       progressPercentage: 10,
-      requesterName: currentUser,
+      requesterName: USER_NAMES[currentUser] || currentUser,
       dates: {
         created: new Date().toISOString().split('T')[0],
         deploymentPlanned: formData.deploymentDate || null,
@@ -215,6 +260,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     };
 
     setChangeRequests(prev => [newCR, ...prev]);
+    logActivity(newCR.id, 'CREATED', `Created CR: ${newCR.title}`);
     setSuccessMessage(`✅ CR ${newCR.id} created successfully!`);
     
     setFormData({
@@ -235,9 +281,22 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }, 2000);
   };
 
+  const handleSign = () => {
+    if (!selectedCR) return;
+    
+    logActivity(selectedCR.id, 'SIGNED', `Signed CR: ${selectedCR.title}`);
+    setSuccessMessage(`✅ ${USER_NAMES[currentUser] || currentUser} signed ${selectedCR.id}!`);
+    
+    setTimeout(() => {
+      setSuccessMessage('');
+    }, 3000);
+  };
+
   const filteredCRs = filterStatus === 'All'
     ? changeRequests
     : changeRequests.filter((cr) => cr.currentStatus === filterStatus);
+
+  const userActivityLogs = auditLogs.filter(log => log.userId === currentUser);
 
   if (loading) return <div className="dashboard"><p>Loading...</p></div>;
 
@@ -266,6 +325,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         </div>
 
         <div className="right-section">
+          <button className="btn-activity" onClick={() => setShowActivityTab(!showActivityTab)}>
+            📋 My Activity ({userActivityLogs.length})
+          </button>
           <button className="btn-create" onClick={() => setShowCreateModal(true)}>
             Create CR
           </button>
@@ -279,6 +341,29 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
           </div>
         </div>
       </div>
+
+      {showActivityTab && (
+        <div className="activity-panel">
+          <div className="activity-header">
+            <h3>Your Activity</h3>
+            <button className="btn-close" onClick={() => setShowActivityTab(false)}>✕</button>
+          </div>
+          <div className="activity-list">
+            {userActivityLogs.length === 0 ? (
+              <p className="no-activity">No activity yet</p>
+            ) : (
+              userActivityLogs.map(log => (
+                <div key={log.id} className="activity-item">
+                  <div className="activity-time">{new Date(log.timestamp).toLocaleString()}</div>
+                  <div className="activity-action">{log.action}</div>
+                  <div className="activity-cr">{log.crId}</div>
+                  <div className="activity-detail">{log.details}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       {viewMode === 'tableau' ? (
         <div className="tableau-view">
@@ -401,6 +486,23 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 </div>
               </div>
 
+              {selectedCR.workflow?.awaitingValidation && (
+                <div className="detail-row pending-section">
+                  <label>Pending Signatures</label>
+                  <div className="pending-list">
+                    {getPendingSigners(selectedCR).length === 0 ? (
+                      <p className="all-signed">✅ All signed!</p>
+                    ) : (
+                      <ul>
+                        {getPendingSigners(selectedCR).map(userId => (
+                          <li key={userId}>⏳ {USER_NAMES[userId] || userId}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {selectedCR.implementation && (
                 <div className="detail-row">
                   <label>Implementation</label>
@@ -432,7 +534,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
               <div className="modal-actions">
                 <button className="btn-edit">✏️ Edit</button>
-                <button className="btn-sign">✍️ Sign</button>
+                <button className="btn-sign" onClick={handleSign}>✍️ Sign</button>
               </div>
             </div>
           </div>
@@ -466,14 +568,17 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 <div className="form-row">
                   <div className="form-group">
                     <label>Project *</label>
-                    <input
-                      type="text"
+                    <select
                       name="project"
                       value={formData.project}
                       onChange={handleFormChange}
-                      placeholder="Ex: Infrastructure"
                       required
-                    />
+                    >
+                      <option value="">Select a project</option>
+                      {PROJECTS.map(proj => (
+                        <option key={proj} value={proj}>{proj}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="form-group">
                     <label>Deployment Date</label>
@@ -559,7 +664,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                             checked={formData.stakeholders.includes(stakeholder)}
                             onChange={() => handleStakeholderToggle(stakeholder)}
                           />
-                          {stakeholder}
+                          {USER_NAMES[stakeholder] || stakeholder}
                         </label>
                       ))}
                     </div>
