@@ -70,7 +70,7 @@ const AVAILABLE_STAKEHOLDERS = [
 const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [changeRequests, setChangeRequests] = useState<CR[]>([]);
   const [viewMode, setViewMode] = useState<'tableau' | 'kanban'>('tableau');
-  const [filterStatus, setFilterStatus] = useState('Tous');
+  const [filterStatus, setFilterStatus] = useState('All');
   const [selectedCR, setSelectedCR] = useState<CR | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -95,7 +95,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         title: 'Réalisé M3 Octobre',
         project: 'Modernisation Infrastructure',
         description: 'Migration base de données vers Azure avec tests de performance et documentation complète.',
-        currentStatus: 'En Attente de validation',
+        currentStatus: 'Awaiting Validation',
         progressPercentage: 25,
         requesterName: 'Christophe Trevise',
         dates: { created: '2026-10-10', deploymentPlanned: '2026-10-20' },
@@ -118,7 +118,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         title: 'Migration SSL Certificates',
         project: 'Infrastructure Sécurité',
         description: 'Mise à jour des certificats SSL pour tous les serveurs de production.',
-        currentStatus: 'Approuvé',
+        currentStatus: 'Approved',
         progressPercentage: 50,
         requesterName: 'Marie Dupont',
         dates: { created: '2026-09-11', deploymentPlanned: '2026-09-15' },
@@ -132,7 +132,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         title: 'Change Management System',
         project: 'DevOps',
         description: 'Implémentation d\'une nouvelle procédure de gestion des changements.',
-        currentStatus: 'Déployé',
+        currentStatus: 'Deployed',
         progressPercentage: 100,
         requesterName: 'Jean Bernard',
         dates: { created: '2026-09-07', deploymentPlanned: '2026-09-10' },
@@ -155,12 +155,12 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Brouillon': return '#999';
-      case 'En Attente de validation': return '#ff9800';
-      case 'Approuvé': return '#4caf50';
-      case 'Implementation en cours': return '#2196f3';
-      case 'En tests': return '#9c27b0';
-      case 'Déployé': return '#00bcd4';
+      case 'Draft': return '#999';
+      case 'Awaiting Validation': return '#ff9800';
+      case 'Approved': return '#4caf50';
+      case 'Implementation': return '#2196f3';
+      case 'Testing': return '#9c27b0';
+      case 'Deployed': return '#00bcd4';
       default: return '#999';
     }
   };
@@ -183,7 +183,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     e.preventDefault();
 
     if (!formData.title || !formData.project) {
-      alert('Titre et Projet sont obligatoires!');
+      alert('Title and Project are required!');
       return;
     }
 
@@ -192,7 +192,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       title: formData.title,
       project: formData.project,
       description: formData.description,
-      currentStatus: 'Brouillon',
+      currentStatus: 'Draft',
       progressPercentage: 10,
       requesterName: currentUser,
       dates: {
@@ -215,7 +215,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     };
 
     setChangeRequests(prev => [newCR, ...prev]);
-    setSuccessMessage(`✅ CR ${newCR.id} créée avec succès!`);
+    setSuccessMessage(`✅ CR ${newCR.id} created successfully!`);
     
     setFormData({
       title: '',
@@ -235,11 +235,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }, 2000);
   };
 
-  const filteredCRs = filterStatus === 'Tous'
+  const filteredCRs = filterStatus === 'All'
     ? changeRequests
     : changeRequests.filter((cr) => cr.currentStatus === filterStatus);
 
-  if (loading) return <div className="dashboard"><p>Chargement...</p></div>;
+  if (loading) return <div className="dashboard"><p>Loading...</p></div>;
 
   return (
     <div className="dashboard">
@@ -252,26 +252,26 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       <div className="top-bar">
         <div className="left-section">
           <div className="filter-group">
-            <label>Filtrer par statut:</label>
+            <label>Filter by status:</label>
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option>Tous</option>
-              <option>Brouillon</option>
-              <option>En Attente de validation</option>
-              <option>Approuvé</option>
-              <option>Implementation en cours</option>
-              <option>En tests</option>
-              <option>Déployé</option>
+              <option>All</option>
+              <option>Draft</option>
+              <option>Awaiting Validation</option>
+              <option>Approved</option>
+              <option>Implementation</option>
+              <option>Testing</option>
+              <option>Deployed</option>
             </select>
           </div>
         </div>
 
         <div className="right-section">
           <button className="btn-create" onClick={() => setShowCreateModal(true)}>
-            ➕ Créer une CR
+            Create CR
           </button>
           <div className="view-toggle">
             <button className={`toggle-btn ${viewMode === 'tableau' ? 'active' : ''}`} onClick={() => setViewMode('tableau')}>
-              📊 Tableau
+              📊 Table
             </button>
             <button className={`toggle-btn ${viewMode === 'kanban' ? 'active' : ''}`} onClick={() => setViewMode('kanban')}>
               📋 Kanban
@@ -286,13 +286,13 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Titre</th>
-                <th>Projet</th>
-                <th>Demandeur</th>
-                <th>Statut</th>
+                <th>Title</th>
+                <th>Project</th>
+                <th>Requester</th>
+                <th>Status</th>
                 <th>Signatures</th>
                 <th>Budget</th>
-                <th>Délai</th>
+                <th>Days</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -316,10 +316,10 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                       {pending.length > 0 && <span className="sig-pending">⏳ {pending.length}</span>}
                     </td>
                     <td>€{(cr.impact.budgetEur / 1000).toFixed(0)}k</td>
-                    <td>{cr.impact.delayDays}j</td>
+                    <td>{cr.impact.delayDays}d</td>
                     <td className="actions-cell">
                       <button className="btn-detail" onClick={() => setSelectedCR(cr)}>
-                        Voir détails
+                        Details
                       </button>
                     </td>
                   </tr>
@@ -330,7 +330,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         </div>
       ) : (
         <div className="kanban-view">
-          {['Brouillon', 'En Attente de validation', 'Approuvé', 'Implementation en cours', 'En tests', 'Déployé'].map((status) => {
+          {['Draft', 'Awaiting Validation', 'Approved', 'Implementation', 'Testing', 'Deployed'].map((status) => {
             const statusCRs = changeRequests.filter((cr) => cr.currentStatus === status);
             return (
               <div key={status} className="kanban-column">
@@ -347,7 +347,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                       <p className="card-title">{cr.title}</p>
                       <div className="card-footer">
                         <span>€{(cr.impact.budgetEur / 1000).toFixed(0)}k</span>
-                        <span>{cr.impact.delayDays}j</span>
+                        <span>{cr.impact.delayDays}d</span>
                       </div>
                     </div>
                   ))}
@@ -371,7 +371,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
             <div className="modal-body">
               <div className="detail-row">
-                <label>Projet</label>
+                <label>Project</label>
                 <p>{selectedCR.project}</p>
               </div>
 
@@ -382,11 +382,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
               <div className="detail-grid">
                 <div className="detail-item">
-                  <label>Demandeur</label>
+                  <label>Requester</label>
                   <p>{selectedCR.requesterName}</p>
                 </div>
                 <div className="detail-item">
-                  <label>Statut</label>
+                  <label>Status</label>
                   <div className="status-badge" style={{ backgroundColor: getStatusColor(selectedCR.currentStatus), display: 'inline-block' }}>
                     {selectedCR.currentStatus}
                   </div>
@@ -396,8 +396,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                   <p>€{selectedCR.impact.budgetEur.toLocaleString()}</p>
                 </div>
                 <div className="detail-item">
-                  <label>Délai</label>
-                  <p>{selectedCR.impact.delayDays} jours</p>
+                  <label>Days</label>
+                  <p>{selectedCR.impact.delayDays} days</p>
                 </div>
               </div>
 
@@ -417,22 +417,22 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
               {selectedCR.risks && (
                 <div className="detail-row">
-                  <label>Risques</label>
+                  <label>Risks</label>
                   <p>{selectedCR.risks}</p>
                 </div>
               )}
 
               <div className="progress-section">
-                <label>Progression</label>
+                <label>Progress</label>
                 <div className="progress-bar">
                   <div className="progress-fill" style={{ width: `${selectedCR.progressPercentage}%` }}></div>
                 </div>
-                <p className="progress-text">{selectedCR.progressPercentage}% complété</p>
+                <p className="progress-text">{selectedCR.progressPercentage}% completed</p>
               </div>
 
               <div className="modal-actions">
-                <button className="btn-edit">✏️ Modifier</button>
-                <button className="btn-sign">✍️ Signer</button>
+                <button className="btn-edit">✏️ Edit</button>
+                <button className="btn-sign">✍️ Sign</button>
               </div>
             </div>
           </div>
@@ -443,7 +443,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
           <div className="modal-content create-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>➕ Créer une nouvelle CR</h2>
+              <h2>Create Change Request</h2>
               <button className="btn-close" onClick={() => setShowCreateModal(false)}>✕</button>
             </div>
 
@@ -451,13 +451,13 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
               <div className="modal-body">
                 <div className="form-row">
                   <div className="form-group full">
-                    <label>Titre *</label>
+                    <label>Title *</label>
                     <input
                       type="text"
                       name="title"
                       value={formData.title}
                       onChange={handleFormChange}
-                      placeholder="Ex: Migration base de données"
+                      placeholder="Ex: Database migration"
                       required
                     />
                   </div>
@@ -465,7 +465,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Projet *</label>
+                    <label>Project *</label>
                     <input
                       type="text"
                       name="project"
@@ -476,7 +476,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Date déploiement souhaitée</label>
+                    <label>Deployment Date</label>
                     <input
                       type="date"
                       name="deploymentDate"
@@ -498,7 +498,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Délai (jours)</label>
+                    <label>Days</label>
                     <input
                       type="number"
                       name="delayDays"
@@ -516,7 +516,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                       name="description"
                       value={formData.description}
                       onChange={handleFormChange}
-                      placeholder="Description détaillée du changement..."
+                      placeholder="Detailed description of the change..."
                       rows={4}
                     />
                   </div>
@@ -524,12 +524,12 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
                 <div className="form-row">
                   <div className="form-group full">
-                    <label>Plan d'implementation</label>
+                    <label>Implementation Plan</label>
                     <textarea
                       name="implementationDesc"
                       value={formData.implementationDesc}
                       onChange={handleFormChange}
-                      placeholder="Détails du plan d'implementation..."
+                      placeholder="Implementation details..."
                       rows={3}
                     />
                   </div>
@@ -537,12 +537,12 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
                 <div className="form-row">
                   <div className="form-group full">
-                    <label>Risques</label>
+                    <label>Risks</label>
                     <textarea
                       name="risks"
                       value={formData.risks}
                       onChange={handleFormChange}
-                      placeholder="Identifiez les risques potentiels..."
+                      placeholder="Identify potential risks..."
                       rows={3}
                     />
                   </div>
@@ -550,7 +550,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
                 <div className="form-row">
                   <div className="form-group full">
-                    <label>Personnes impliquées (stakeholders)</label>
+                    <label>Stakeholders</label>
                     <div className="stakeholder-list">
                       {AVAILABLE_STAKEHOLDERS.map(stakeholder => (
                         <label key={stakeholder} className="checkbox-label">
@@ -569,10 +569,10 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
               <div className="modal-footer">
                 <button type="button" className="btn-cancel" onClick={() => setShowCreateModal(false)}>
-                  Annuler
+                  Cancel
                 </button>
                 <button type="submit" className="btn-submit">
-                  ✅ Créer la CR
+                  Create CR
                 </button>
               </div>
             </form>
