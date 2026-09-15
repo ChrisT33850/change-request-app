@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 import { generateWordDocument } from './utils/wordGenerator';
 import { exportDataAsJSON, getGitHubUploadInstructions } from './utils/dataExport';
+import { saveToGitHub, loadFromGitHub } from './utils/githubApi';
 
 interface Signature {
   userId: string;
@@ -93,13 +94,22 @@ interface DashboardProps {
 }
 
 const AVAILABLE_STAKEHOLDERS = [
-  'marco.fallea',
-  'michael.hamadouche',
-  'arianne.bryant',
-  
+  'marie.dupont',
+  'jean.bernard',
+  'pierre.leclerc',
+  'qa.team',
+  'user.acceptance',
 ];
 
 const PROJECTS: { [key: string]: string } = {
+  'Infrastructure': 'INFRA',
+  'Modernisation Infrastructure': 'INFRA',
+  'Infrastructure Sécurité': 'SEC',
+  'DevOps': 'DEVOPS',
+  'Product': 'PROD',
+  'Cloud Migration': 'CLOUD',
+  'Security': 'SEC',
+  'Database': 'DB',
   'Noventum': 'NV',
   'AI Pilot': 'AI',
   'Messaging session': 'MS',
@@ -159,82 +169,105 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   });
 
   useEffect(() => {
-    const mockCRs: CR[] = [
-      {
-        id: 'CC-INFRA-001',
-        title: 'Réalisé M3 Octobre',
-        project: 'Modernisation Infrastructure',
-        description: 'Migration base de données vers Azure avec tests de performance et documentation complète.',
-        currentStatus: 'Awaiting Validation',
-        progressPercentage: 25,
-        requesterName: 'Christophe Trevise',
-        dates: { created: '2026-10-10', deploymentPlanned: '2026-10-20' },
-        impact: { budgetEur: 50000, delayDays: 7 },
-        impacts: {
-          timeline: 'Yes',
-          costs: 'Yes',
-          quality: 'No',
-          teams: 'Yes',
-          knowledge: 'No',
-        },
-        implementation: { description: 'Plan de migration vers Azure...', technicalOwner: 'Jean Bernard' },
-        tests: { report: 'Tests en cours - Performance +40%', status: 'IN_PROGRESS' },
-        risks: 'Risque de downtime <5 min',
-        stakeholders: ['Christophe Trevise', 'marie.dupont', 'jean.bernard'],
-        workflow: {
-          awaitingValidation: {
-            signatures: [
-              { userId: 'marie.dupont', userName: 'Marie Dupont', role: 'IT Manager', timestamp: '2026-10-11T10:00:00Z', decision: 'APPROVED', feedback: 'Approuvé' },
-              { userId: 'jean.bernard', userName: 'Jean Bernard', role: 'Ops Manager', timestamp: '2026-10-11T11:30:00Z', decision: 'APPROVED', feedback: '' },
-            ],
-            requiredSignatories: ['marie.dupont', 'jean.bernard', 'pierre.leclerc'],
+    const initializeApp = async () => {
+      setLoading(true);
+      
+      // Essayer de charger depuis GitHub
+      const githubData = await loadFromGitHub();
+      
+      if (githubData && githubData.length > 0) {
+        // GitHub a des données
+        setChangeRequests(githubData);
+        
+        const counters: { [key: string]: number } = {};
+        githubData.forEach(cr => {
+          const prefix = cr.id.split('-')[1];
+          counters[prefix] = Math.max(counters[prefix] || 0, parseInt(cr.id.split('-')[2]) || 0);
+        });
+        setCrCounters(counters);
+      } else {
+        // Pas de données sur GitHub, utiliser les données demo
+        const mockCRs: CR[] = [
+          {
+            id: 'CC-INFRA-001',
+            title: 'Réalisé M3 Octobre',
+            project: 'Modernisation Infrastructure',
+            description: 'Migration base de données vers Azure avec tests de performance et documentation complète.',
+            currentStatus: 'Awaiting Validation',
+            progressPercentage: 25,
+            requesterName: 'Christophe Trevise',
+            dates: { created: '2026-10-10', deploymentPlanned: '2026-10-20' },
+            impact: { budgetEur: 50000, delayDays: 7 },
+            impacts: {
+              timeline: 'Yes',
+              costs: 'Yes',
+              quality: 'No',
+              teams: 'Yes',
+              knowledge: 'No',
+            },
+            implementation: { description: 'Plan de migration vers Azure...', technicalOwner: 'Jean Bernard' },
+            tests: { report: 'Tests en cours - Performance +40%', status: 'IN_PROGRESS' },
+            risks: 'Risque de downtime <5 min',
+            stakeholders: ['Christophe Trevise', 'marie.dupont', 'jean.bernard'],
+            workflow: {
+              awaitingValidation: {
+                signatures: [
+                  { userId: 'marie.dupont', userName: 'Marie Dupont', role: 'IT Manager', timestamp: '2026-10-11T10:00:00Z', decision: 'APPROVED', feedback: 'Approuvé' },
+                  { userId: 'jean.bernard', userName: 'Jean Bernard', role: 'Ops Manager', timestamp: '2026-10-11T11:30:00Z', decision: 'APPROVED', feedback: '' },
+                ],
+                requiredSignatories: ['marie.dupont', 'jean.bernard', 'pierre.leclerc'],
+              },
+            },
           },
-        },
-      },
-      {
-        id: 'CC-SEC-001',
-        title: 'Migration SSL Certificates',
-        project: 'Infrastructure Sécurité',
-        description: 'Mise à jour des certificats SSL pour tous les serveurs de production.',
-        currentStatus: 'Approved',
-        progressPercentage: 50,
-        requesterName: 'Marie Dupont',
-        dates: { created: '2026-09-11', deploymentPlanned: '2026-09-15' },
-        impact: { budgetEur: 5000, delayDays: 1 },
-        impacts: { timeline: 'No', costs: 'No', quality: 'No', teams: 'No', knowledge: 'No' },
-        implementation: { description: 'Renouvellement SSL...', technicalOwner: 'Jean Bernard' },
-        tests: { report: 'Tests complétés', status: 'PASSED' },
-        risks: 'Downtime minimal',
-        stakeholders: ['Marie Dupont', 'jean.bernard'],
-      },
-      {
-        id: 'CC-DEVOPS-001',
-        title: 'Change Management System',
-        project: 'DevOps',
-        description: 'Implémentation d\'une nouvelle procédure de gestion des changements.',
-        currentStatus: 'Deployed',
-        progressPercentage: 100,
-        requesterName: 'Jean Bernard',
-        dates: { created: '2026-09-07', deploymentPlanned: '2026-09-10' },
-        impact: { budgetEur: 25000, delayDays: 3 },
-        impacts: { timeline: 'Yes', costs: 'Yes', quality: 'Yes', teams: 'Yes', knowledge: 'Yes' },
-        implementation: { description: 'Déploiement complet...', technicalOwner: 'Jean Bernard' },
-        tests: { report: 'Tous les tests passés', status: 'PASSED' },
-        risks: 'Aucun majeur',
-        stakeholders: ['Jean Bernard', 'marie.dupont'],
-      },
-    ];
-    setChangeRequests(mockCRs);
-    
-    const counters: { [key: string]: number } = {};
-    mockCRs.forEach(cr => {
-      const prefix = cr.id.split('-')[1];
-      counters[prefix] = Math.max(counters[prefix] || 0, parseInt(cr.id.split('-')[2]) || 0);
-    });
-    setCrCounters(counters);
-    
-    setLoading(false);
-    setShowSignaturePopup(true);
+          {
+            id: 'CC-SEC-001',
+            title: 'Migration SSL Certificates',
+            project: 'Infrastructure Sécurité',
+            description: 'Mise à jour des certificats SSL pour tous les serveurs de production.',
+            currentStatus: 'Approved',
+            progressPercentage: 50,
+            requesterName: 'Marie Dupont',
+            dates: { created: '2026-09-11', deploymentPlanned: '2026-09-15' },
+            impact: { budgetEur: 5000, delayDays: 1 },
+            impacts: { timeline: 'No', costs: 'No', quality: 'No', teams: 'No', knowledge: 'No' },
+            implementation: { description: 'Renouvellement SSL...', technicalOwner: 'Jean Bernard' },
+            tests: { report: 'Tests complétés', status: 'PASSED' },
+            risks: 'Downtime minimal',
+            stakeholders: ['Marie Dupont', 'jean.bernard'],
+          },
+          {
+            id: 'CC-DEVOPS-001',
+            title: 'Change Management System',
+            project: 'DevOps',
+            description: 'Implémentation d\'une nouvelle procédure de gestion des changements.',
+            currentStatus: 'Deployed',
+            progressPercentage: 100,
+            requesterName: 'Jean Bernard',
+            dates: { created: '2026-09-07', deploymentPlanned: '2026-09-10' },
+            impact: { budgetEur: 25000, delayDays: 3 },
+            impacts: { timeline: 'Yes', costs: 'Yes', quality: 'Yes', teams: 'Yes', knowledge: 'Yes' },
+            implementation: { description: 'Déploiement complet...', technicalOwner: 'Jean Bernard' },
+            tests: { report: 'Tous les tests passés', status: 'PASSED' },
+            risks: 'Aucun majeur',
+            stakeholders: ['Jean Bernard', 'marie.dupont'],
+          },
+        ];
+        
+        setChangeRequests(mockCRs);
+        
+        const counters: { [key: string]: number } = {};
+        mockCRs.forEach(cr => {
+          const prefix = cr.id.split('-')[1];
+          counters[prefix] = Math.max(counters[prefix] || 0, parseInt(cr.id.split('-')[2]) || 0);
+        });
+        setCrCounters(counters);
+      }
+      
+      setLoading(false);
+      setShowSignaturePopup(true);
+    };
+
+    initializeApp();
   }, []);
 
   const generateCRId = (project: string): string => {
@@ -304,7 +337,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       instructions,
     });
 
-    // Télécharge automatiquement
     exportDataAsJSON(changeRequests, auditLogs);
   };
 
@@ -314,7 +346,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setTimeout(() => setInstructionsCopied(false), 2000);
   };
 
-  const handleCreateCR = (e: React.FormEvent) => {
+  const handleCreateCR = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.title || !formData.project) {
@@ -325,7 +357,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     const newId = generateCRId(formData.project);
     const requesterName = USER_NAMES[currentUser] || currentUser;
     
-    // Requester est automatiquement stakeholder
     const allStakeholders = [requesterName, ...formData.stakeholders];
 
     const newCR: CR = {
@@ -363,10 +394,13 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       stakeholders: allStakeholders,
     };
 
-    setChangeRequests(prev => [newCR, ...prev]);
+    const updatedCRs = [newCR, ...changeRequests];
+    setChangeRequests(updatedCRs);
     logActivity(newCR.id, 'CREATED', `Created CR: ${newCR.title}`);
     setSuccessMessage(`✅ CR ${newCR.id} created successfully!`);
     
+    // Sauvegarder sur GitHub
+    await saveToGitHub(updatedCRs);
     triggerExport('CREATE');
     
     setFormData({
@@ -392,12 +426,14 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }, 2000);
   };
 
-  const handleSign = () => {
+  const handleSign = async () => {
     if (!selectedCR) return;
     
     logActivity(selectedCR.id, 'SIGNED', `Signed CR: ${selectedCR.title}`);
     setSuccessMessage(`✅ ${USER_NAMES[currentUser] || currentUser} signed ${selectedCR.id}!`);
     
+    // Sauvegarder sur GitHub
+    await saveToGitHub(changeRequests);
     triggerExport('SIGN');
     
     setTimeout(() => {
@@ -405,25 +441,28 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }, 3000);
   };
 
-  const handleDeleteCR = (crId: string) => {
+  const handleDeleteCR = async (crId: string) => {
     if (window.confirm('Are you sure you want to delete this CR?')) {
-      setChangeRequests(prev => prev.filter(cr => cr.id !== crId));
+      const updatedCRs = changeRequests.filter(cr => cr.id !== crId);
+      setChangeRequests(updatedCRs);
       logActivity(crId, 'DELETED', `Deleted CR`);
       setSelectedCR(null);
       setSuccessMessage(`✅ CR ${crId} deleted!`);
       
+      // Sauvegarder sur GitHub
+      await saveToGitHub(updatedCRs);
       triggerExport('DELETE');
       
       setTimeout(() => setSuccessMessage(''), 2000);
     }
   };
 
-  const handleStatusChange = (crId: string, newStatus: string) => {
-    setChangeRequests(prev =>
-      prev.map(cr =>
-        cr.id === crId ? { ...cr, currentStatus: newStatus } : cr
-      )
+  const handleStatusChange = async (crId: string, newStatus: string) => {
+    const updatedCRs = changeRequests.map(cr =>
+      cr.id === crId ? { ...cr, currentStatus: newStatus } : cr
     );
+    
+    setChangeRequests(updatedCRs);
     logActivity(crId, 'STATUS_CHANGED', `Status changed to: ${newStatus}`);
     
     if (selectedCR?.id === crId) {
@@ -433,6 +472,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setEditingStatus(null);
     setSuccessMessage(`✅ Status updated to ${newStatus}!`);
     
+    // Sauvegarder sur GitHub
+    await saveToGitHub(updatedCRs);
     triggerExport('STATUS_CHANGE');
     
     setTimeout(() => setSuccessMessage(''), 2000);
