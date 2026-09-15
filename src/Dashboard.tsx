@@ -107,8 +107,12 @@ const PROJECT_LIST = Object.keys(PROJECTS);
 
 const USER_NAMES: { [key: string]: string } = {
   'christophe': 'Christophe Trevise',
-  'michael':'Michael Hamadouche',
-  };
+  'marie.dupont': 'Marie Dupont',
+  'jean.bernard': 'Jean Bernard',
+  'pierre.leclerc': 'Pierre Leclerc',
+  'qa.team': 'QA Team',
+  'user.acceptance': 'User Acceptance',
+};
 
 const IMPACT_OPTIONS = ['Yes', 'No', 'NA', 'TBD'];
 
@@ -147,11 +151,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     const initializeApp = async () => {
       setLoading(true);
       
-      // Essayer de charger depuis GitHub
       const githubData = await loadFromGitHub();
       
       if (githubData && githubData.length > 0) {
-        // GitHub a des données
         setChangeRequests(githubData);
         
         const counters: { [key: string]: number } = {};
@@ -161,17 +163,16 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         });
         setCrCounters(counters);
       } else {
-        // Pas de données sur GitHub, utiliser les données demo
         const mockCRs: CR[] = [
           {
-            id: 'CC-INFRA-001',
-            title: 'Réalisé M3 Octobre',
-            project: 'Modernisation Infrastructure',
-            description: 'Migration base de données vers Azure avec tests de performance et documentation complète.',
+            id: 'CC-NV-001',
+            title: 'Noventum Setup - Phase 1',
+            project: 'Noventum',
+            description: 'Initial setup and configuration for Noventum integration.',
             currentStatus: 'Awaiting Validation',
             progressPercentage: 25,
             requesterName: 'Christophe Trevise',
-            dates: { created: '2026-10-10', deploymentPlanned: '2026-10-20' },
+            dates: { created: '2026-09-15', deploymentPlanned: '2026-09-25' },
             impact: { budgetEur: 50000, delayDays: 7 },
             impacts: {
               timeline: 'Yes',
@@ -180,51 +181,34 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
               teams: 'Yes',
               knowledge: 'No',
             },
-            implementation: { description: 'Plan de migration vers Azure...', technicalOwner: 'Jean Bernard' },
-            tests: { report: 'Tests en cours - Performance +40%', status: 'IN_PROGRESS' },
-            risks: 'Risque de downtime <5 min',
-            stakeholders: ['Christophe Trevise', 'marie.dupont', 'jean.bernard'],
+            implementation: { description: 'Noventum setup plan...', technicalOwner: 'Jean Bernard' },
+            tests: { report: 'Initial tests in progress', status: 'IN_PROGRESS' },
+            risks: 'Integration delays',
+            stakeholders: ['Christophe Trevise', 'marie.dupont'],
             workflow: {
               awaitingValidation: {
                 signatures: [
-                  { userId: 'marie.dupont', userName: 'Marie Dupont', role: 'IT Manager', timestamp: '2026-10-11T10:00:00Z', decision: 'APPROVED', feedback: 'Approuvé' },
-                  { userId: 'jean.bernard', userName: 'Jean Bernard', role: 'Ops Manager', timestamp: '2026-10-11T11:30:00Z', decision: 'APPROVED', feedback: '' },
+                  { userId: 'marie.dupont', userName: 'Marie Dupont', role: 'Manager', timestamp: '2026-09-15T10:00:00Z', decision: 'APPROVED', feedback: 'OK' },
                 ],
-                requiredSignatories: ['marie.dupont', 'jean.bernard', 'pierre.leclerc'],
+                requiredSignatories: ['marie.dupont', 'jean.bernard'],
               },
             },
           },
           {
-            id: 'CC-SEC-001',
-            title: 'Migration SSL Certificates',
-            project: 'Infrastructure Sécurité',
-            description: 'Mise à jour des certificats SSL pour tous les serveurs de production.',
+            id: 'CC-AI-001',
+            title: 'AI Pilot - Initial Phase',
+            project: 'AI Pilot',
+            description: 'Start of AI pilot program implementation.',
             currentStatus: 'Approved',
             progressPercentage: 50,
             requesterName: 'Marie Dupont',
-            dates: { created: '2026-09-11', deploymentPlanned: '2026-09-15' },
-            impact: { budgetEur: 5000, delayDays: 1 },
-            impacts: { timeline: 'No', costs: 'No', quality: 'No', teams: 'No', knowledge: 'No' },
-            implementation: { description: 'Renouvellement SSL...', technicalOwner: 'Jean Bernard' },
-            tests: { report: 'Tests complétés', status: 'PASSED' },
-            risks: 'Downtime minimal',
-            stakeholders: ['Marie Dupont', 'jean.bernard'],
-          },
-          {
-            id: 'CC-DEVOPS-001',
-            title: 'Change Management System',
-            project: 'DevOps',
-            description: 'Implémentation d\'une nouvelle procédure de gestion des changements.',
-            currentStatus: 'Deployed',
-            progressPercentage: 100,
-            requesterName: 'Jean Bernard',
-            dates: { created: '2026-09-07', deploymentPlanned: '2026-09-10' },
-            impact: { budgetEur: 25000, delayDays: 3 },
+            dates: { created: '2026-09-10', deploymentPlanned: '2026-09-20' },
+            impact: { budgetEur: 25000, delayDays: 5 },
             impacts: { timeline: 'Yes', costs: 'Yes', quality: 'Yes', teams: 'Yes', knowledge: 'Yes' },
-            implementation: { description: 'Déploiement complet...', technicalOwner: 'Jean Bernard' },
-            tests: { report: 'Tous les tests passés', status: 'PASSED' },
-            risks: 'Aucun majeur',
-            stakeholders: ['Jean Bernard', 'marie.dupont'],
+            implementation: { description: 'AI implementation...', technicalOwner: 'Jean Bernard' },
+            tests: { report: 'Tests passed', status: 'PASSED' },
+            risks: 'Minimal',
+            stakeholders: ['Marie Dupont', 'jean.bernard'],
           },
         ];
         
@@ -354,7 +338,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     logActivity(newCR.id, 'CREATED', `Created CR: ${newCR.title}`);
     setSuccessMessage(`✅ CR ${newCR.id} created successfully!`);
     
-    // Sauvegarder automatiquement sur GitHub
     await saveToGitHub(updatedCRs);
     
     setFormData({
@@ -381,55 +364,54 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   };
 
   const handleSign = async () => {
-  if (!selectedCR) return;
-  
-  const currentUserName = USER_NAMES[currentUser] || currentUser;
-  
-  // Initialiser workflow si nécessaire
-  if (!selectedCR.workflow) {
-    selectedCR.workflow = {};
-  }
-  if (!selectedCR.workflow.awaitingValidation) {
-    selectedCR.workflow.awaitingValidation = {
-      signatures: [],
-      requiredSignatories: []
+    if (!selectedCR) return;
+    
+    const currentUserName = USER_NAMES[currentUser] || currentUser;
+    
+    // Initialiser workflow si nécessaire
+    if (!selectedCR.workflow) {
+      selectedCR.workflow = {};
+    }
+    if (!selectedCR.workflow.awaitingValidation) {
+      selectedCR.workflow.awaitingValidation = {
+        signatures: [],
+        requiredSignatories: []
+      };
+    }
+    
+    // Vérifier si déjà signé
+    const alreadySigned = selectedCR.workflow.awaitingValidation.signatures.some(s => s.userId === currentUser);
+    if (alreadySigned) {
+      alert('You already signed this CR!');
+      return;
+    }
+    
+    // Ajouter la signature
+    const newSignature: Signature = {
+      userId: currentUser,
+      userName: currentUserName,
+      role: 'Manager',
+      timestamp: new Date().toISOString(),
+      decision: 'APPROVED',
+      feedback: ''
     };
-  }
-  
-  // Vérifier si déjà signé
-  const alreadySigned = selectedCR.workflow.awaitingValidation.signatures.some(s => s.userId === currentUser);
-  if (alreadySigned) {
-    alert('You already signed this CR!');
-    return;
-  }
-  
-  // Ajouter la signature
-  const newSignature: Signature = {
-    userId: currentUser,
-    userName: currentUserName,
-    role: 'Manager',
-    timestamp: new Date().toISOString(),
-    decision: 'APPROVED',
-    feedback: ''
+    
+    selectedCR.workflow.awaitingValidation.signatures.push(newSignature);
+    
+    // Update l'état
+    const updatedCRs = changeRequests.map(cr => cr.id === selectedCR.id ? selectedCR : cr);
+    setChangeRequests(updatedCRs);
+    setSelectedCR({ ...selectedCR });
+    
+    logActivity(selectedCR.id, 'SIGNED', `Signed CR: ${selectedCR.title}`);
+    setSuccessMessage(`✅ ${currentUserName} signed ${selectedCR.id}!`);
+    
+    await saveToGitHub(updatedCRs);
+    
+    setTimeout(() => {
+      setSuccessMessage('');
+    }, 3000);
   };
-  
-  selectedCR.workflow.awaitingValidation.signatures.push(newSignature);
-  
-  // Update l'état
-  const updatedCRs = changeRequests.map(cr => cr.id === selectedCR.id ? selectedCR : cr);
-  setChangeRequests(updatedCRs);
-  setSelectedCR({ ...selectedCR });
-  
-  logActivity(selectedCR.id, 'SIGNED', `Signed CR: ${selectedCR.title}`);
-  setSuccessMessage(`✅ ${currentUserName} signed ${selectedCR.id}!`);
-  
-  // Sauvegarder automatiquement sur GitHub
-  await saveToGitHub(updatedCRs);
-  
-  setTimeout(() => {
-    setSuccessMessage('');
-  }, 3000);
-};
 
   const handleDeleteCR = async (crId: string) => {
     if (window.confirm('Are you sure you want to delete this CR?')) {
@@ -439,7 +421,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       setSelectedCR(null);
       setSuccessMessage(`✅ CR ${crId} deleted!`);
       
-      // Sauvegarder automatiquement sur GitHub
       await saveToGitHub(updatedCRs);
       
       setTimeout(() => setSuccessMessage(''), 2000);
@@ -461,7 +442,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setEditingStatus(null);
     setSuccessMessage(`✅ Status updated to ${newStatus}!`);
     
-    // Sauvegarder automatiquement sur GitHub
     await saveToGitHub(updatedCRs);
     
     setTimeout(() => setSuccessMessage(''), 2000);
@@ -496,7 +476,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 Review and sign the CRs that need your approval.
               </p>
               <p className="signature-hint">
-                Click "View Details" to see the CRs awaiting your signature.
+                Click "Details" to see the CRs awaiting your signature.
               </p>
             </div>
             <div className="modal-footer">
@@ -737,6 +717,17 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                         ))}
                       </ul>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {selectedCR.workflow?.awaitingValidation?.signatures && selectedCR.workflow.awaitingValidation.signatures.length > 0 && (
+                <div className="detail-row">
+                  <label>Signed By</label>
+                  <div className="signed-list">
+                    {selectedCR.workflow.awaitingValidation.signatures.map((sig, idx) => (
+                      <span key={idx} className="signed-badge">✅ {sig.userName}</span>
+                    ))}
                   </div>
                 </div>
               )}
