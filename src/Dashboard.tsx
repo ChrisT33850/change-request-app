@@ -95,14 +95,6 @@ const AVAILABLE_STAKEHOLDERS = [
 ];
 
 const PROJECTS: { [key: string]: string } = {
-  'Infrastructure': 'INFRA',
-  'Modernisation Infrastructure': 'INFRA',
-  'Infrastructure Sécurité': 'SEC',
-  'DevOps': 'DEVOPS',
-  'Product': 'PROD',
-  'Cloud Migration': 'CLOUD',
-  'Security': 'SEC',
-  'Database': 'DB',
   'Noventum': 'NV',
   'AI Pilot': 'AI',
   'Messaging session': 'MS',
@@ -115,12 +107,8 @@ const PROJECT_LIST = Object.keys(PROJECTS);
 
 const USER_NAMES: { [key: string]: string } = {
   'christophe': 'Christophe Trevise',
-  'marie.dupont': 'Marie Dupont',
-  'jean.bernard': 'Jean Bernard',
-  'pierre.leclerc': 'Pierre Leclerc',
-  'qa.team': 'QA Team',
-  'user.acceptance': 'User Acceptance',
-};
+  'michael':'Michael Hamadouche',
+  };
 
 const IMPACT_OPTIONS = ['Yes', 'No', 'NA', 'TBD'];
 
@@ -393,18 +381,55 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   };
 
   const handleSign = async () => {
-    if (!selectedCR) return;
-    
-    logActivity(selectedCR.id, 'SIGNED', `Signed CR: ${selectedCR.title}`);
-    setSuccessMessage(`✅ ${USER_NAMES[currentUser] || currentUser} signed ${selectedCR.id}!`);
-    
-    // Sauvegarder automatiquement sur GitHub
-    await saveToGitHub(changeRequests);
-    
-    setTimeout(() => {
-      setSuccessMessage('');
-    }, 3000);
+  if (!selectedCR) return;
+  
+  const currentUserName = USER_NAMES[currentUser] || currentUser;
+  
+  // Initialiser workflow si nécessaire
+  if (!selectedCR.workflow) {
+    selectedCR.workflow = {};
+  }
+  if (!selectedCR.workflow.awaitingValidation) {
+    selectedCR.workflow.awaitingValidation = {
+      signatures: [],
+      requiredSignatories: []
+    };
+  }
+  
+  // Vérifier si déjà signé
+  const alreadySigned = selectedCR.workflow.awaitingValidation.signatures.some(s => s.userId === currentUser);
+  if (alreadySigned) {
+    alert('You already signed this CR!');
+    return;
+  }
+  
+  // Ajouter la signature
+  const newSignature: Signature = {
+    userId: currentUser,
+    userName: currentUserName,
+    role: 'Manager',
+    timestamp: new Date().toISOString(),
+    decision: 'APPROVED',
+    feedback: ''
   };
+  
+  selectedCR.workflow.awaitingValidation.signatures.push(newSignature);
+  
+  // Update l'état
+  const updatedCRs = changeRequests.map(cr => cr.id === selectedCR.id ? selectedCR : cr);
+  setChangeRequests(updatedCRs);
+  setSelectedCR({ ...selectedCR });
+  
+  logActivity(selectedCR.id, 'SIGNED', `Signed CR: ${selectedCR.title}`);
+  setSuccessMessage(`✅ ${currentUserName} signed ${selectedCR.id}!`);
+  
+  // Sauvegarder automatiquement sur GitHub
+  await saveToGitHub(updatedCRs);
+  
+  setTimeout(() => {
+    setSuccessMessage('');
+  }, 3000);
+};
 
   const handleDeleteCR = async (crId: string) => {
     if (window.confirm('Are you sure you want to delete this CR?')) {
