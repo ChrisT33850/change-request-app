@@ -1,4 +1,4 @@
-const GITHUB_TOKEN = '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';
+const GITHUB_TOKEN = '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';
 const GITHUB_OWNER = 'ChrisT33850';
 const GITHUB_REPO = 'change-request-app';
 const GITHUB_BRANCH = 'main';
