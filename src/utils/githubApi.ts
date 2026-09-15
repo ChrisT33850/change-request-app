@@ -1,4 +1,4 @@
-const GITHUB_TOKEN = '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';
+const GITHUB_TOKEN = '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'; // Minimal token (workflow trigger only)
 const GITHUB_OWNER = 'ChrisT33850';
 const GITHUB_REPO = 'change-request-app';
 const GITHUB_BRANCH = 'main';
@@ -11,14 +11,8 @@ interface CR {
   currentStatus: string;
   progressPercentage: number;
   requesterName: string;
-  dates: {
-    created: string;
-    deploymentPlanned: string | null;
-  };
-  impact: {
-    budgetEur: number;
-    delayDays: number;
-  };
+  dates: { created: string; deploymentPlanned: string | null };
+  impact: { budgetEur: number; delayDays: number };
   impacts?: {
     timeline: string;
     costs: string;
@@ -26,103 +20,56 @@ interface CR {
     teams: string;
     knowledge: string;
   };
-  implementation?: {
-    description: string;
-    technicalOwner: string;
-  };
-  tests?: {
-    report: string;
-    status: string;
-  };
+  implementation?: { description: string; technicalOwner: string };
+  tests?: { report: string; status: string };
   risks?: string;
   stakeholders?: string[];
-  workflow?: {
-    awaitingValidation?: {
-      signatures: Array<{
-        userId: string;
-        userName: string;
-        role: string;
-        timestamp: string;
-        decision: string;
-        feedback: string;
-      }>;
-      requiredSignatories: string[];
-    };
-  };
+  workflow?: { awaitingValidation?: { signatures: any[]; requiredSignatories: string[] } };
 }
 
 export const saveToGitHub = async (changeRequests: CR[]): Promise<boolean> => {
   try {
-    const filePath = 'data/change-requests.json';
-    const content = JSON.stringify(changeRequests, null, 2);
-    const encodedContent = btoa(unescape(encodeURIComponent(content)));
+    const jsonData = JSON.stringify(changeRequests, null, 2);
 
-    // Récupérer le SHA du fichier existant
-    const getShaResponse = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`,
-      {
-        headers: {
-          Authorization: `Bearer ${GITHUB_TOKEN}`,
-          Accept: 'application/vnd.github.v3+json',
-        },
-      }
-    );
-
-    let sha: string | undefined;
-    if (getShaResponse.ok) {
-      const data = await getShaResponse.json();
-      sha = data.sha;
-    }
-
-    // Uploader le fichier
+    // Déclencher le GitHub Action workflow_dispatch
     const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`,
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/update-change-requests.yml/dispatches`,
       {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${GITHUB_TOKEN}`,
           Accept: 'application/vnd.github.v3+json',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: `Auto-update: Change requests synchronized at ${new Date().toISOString()}`,
-          content: encodedContent,
-          branch: GITHUB_BRANCH,
-          ...(sha && { sha }),
+          ref: GITHUB_BRANCH,
+          inputs: {
+            change_requests_data: jsonData,
+          },
         }),
       }
     );
 
-    return response.ok;
+    if (response.ok || response.status === 204) {
+      console.log('✅ Workflow triggered successfully');
+      return true;
+    } else {
+      console.error('❌ Workflow trigger failed:', response.status);
+      return false;
+    }
   } catch (error) {
-    console.error('GitHub save error:', error);
+    console.error('Error triggering workflow:', error);
     return false;
   }
 };
 
 export const loadFromGitHub = async (): Promise<CR[] | null> => {
   try {
-    const filePath = 'data/change-requests.json';
-
     const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}?ref=${GITHUB_BRANCH}`,
-      {
-        headers: {
-          Authorization: `Bearer ${GITHUB_TOKEN}`,
-          Accept: 'application/vnd.github.v3.raw',
-        },
-      }
+      `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/data/change-requests.json`
     );
 
     if (!response.ok) {
-      console.error('GitHub load error:', response.status);
+      console.error('Load failed:', response.status);
       return null;
     }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('GitHub load error:', error);
-    return null;
-  }
-};
