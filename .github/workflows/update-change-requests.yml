@@ -1,0 +1,26 @@
+name: Update Change Requests
+
+on:
+  workflow_dispatch:
+    inputs:
+      change_requests_data:
+        description: 'Change Requests JSON data'
+        required: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Update change-requests.json
+        run: |
+          echo '${{ github.event.inputs.change_requests_data }}' > data/change-requests.json
+      
+      - name: Commit and push
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/change-requests.json
+          git commit -m "Auto-update: Change requests synchronized"
+          git push
