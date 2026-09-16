@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 import { generateWordDocument } from './utils/wordGenerator';
-import { saveToGitHub, loadFromGitHub } from './utils/githubApi';
+import { saveToSupabase, loadFromSupabase } from './utils/supabaseService';
 
 interface Signature {
   userId: string;
@@ -338,7 +338,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     logActivity(newCR.id, 'CREATED', `Created CR: ${newCR.title}`);
     setSuccessMessage(`✅ CR ${newCR.id} created successfully!`);
     
-    await saveToGitHub(updatedCRs);
+    await saveToSupabase(updatedCRs);
     
     setFormData({
       title: '',
@@ -406,7 +406,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     logActivity(selectedCR.id, 'SIGNED', `Signed CR: ${selectedCR.title}`);
     setSuccessMessage(`✅ ${currentUserName} signed ${selectedCR.id}!`);
     
-    await saveToGitHub(updatedCRs);
+    await saveToSupabase(updatedCRs);
     
     setTimeout(() => {
       setSuccessMessage('');
@@ -421,7 +421,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       setSelectedCR(null);
       setSuccessMessage(`✅ CR ${crId} deleted!`);
       
-      await saveToGitHub(updatedCRs);
+      await saveToSupabase(updatedCRs);
       
       setTimeout(() => setSuccessMessage(''), 2000);
     }
@@ -442,7 +442,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setEditingStatus(null);
     setSuccessMessage(`✅ Status updated to ${newStatus}!`);
     
-    await saveToGitHub(updatedCRs);
+    await saveToSupabase(updatedCRs);
     
     setTimeout(() => setSuccessMessage(''), 2000);
   };
