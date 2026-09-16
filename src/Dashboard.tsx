@@ -166,55 +166,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         setCrCounters(counters);
       } else {
         const mockCRs: CR[] = [
-          {
-            id: 'CC-NV-001',
-            title: 'Noventum Setup - Phase 1',
-            project: 'Noventum',
-            description: 'Initial setup and configuration for Noventum integration.',
-            currentStatus: 'Awaiting Validation',
-            progressPercentage: 25,
-            requesterName: 'Christophe Trevise',
-            dates: { created: '2026-09-15', deploymentPlanned: '2026-09-25' },
-            impact: { budgetEur: 50000, delayDays: 7 },
-            impacts: {
-              timeline: 'Yes',
-              costs: 'Yes',
-              quality: 'No',
-              teams: 'Yes',
-              knowledge: 'No',
-            },
-            implementation: { description: 'Noventum setup plan...', technicalOwner: 'Jean Bernard' },
-            tests: { report: 'Initial tests in progress', status: 'IN_PROGRESS' },
-            risks: 'Integration delays',
-            stakeholders: ['Christophe Trevise', 'marie.dupont'],
-            workflow: {
-              awaitingValidation: {
-                signatures: [
-                  { userId: 'marie.dupont', userName: 'Marie Dupont', role: 'Manager', timestamp: '2026-09-15T10:00:00Z', decision: 'APPROVED', feedback: 'OK' },
-                ],
-                requiredSignatories: ['marie.dupont', 'jean.bernard'],
-              },
-            },
-          },
-          {
-            id: 'CC-AI-001',
-            title: 'AI Pilot - Initial Phase',
-            project: 'AI Pilot',
-            description: 'Start of AI pilot program implementation.',
-            currentStatus: 'Approved',
-            progressPercentage: 50,
-            requesterName: 'Marie Dupont',
-            dates: { created: '2026-09-10', deploymentPlanned: '2026-09-20' },
-            impact: { budgetEur: 25000, delayDays: 5 },
-            impacts: { timeline: 'Yes', costs: 'Yes', quality: 'Yes', teams: 'Yes', knowledge: 'Yes' },
-            implementation: { description: 'AI implementation...', technicalOwner: 'Jean Bernard' },
-            tests: { report: 'Tests passed', status: 'PASSED' },
-            risks: 'Minimal',
-            stakeholders: ['Marie Dupont', 'jean.bernard'],
-          },
-        ];
-        
-        setChangeRequests(mockCRs);
+                 setChangeRequests(mockCRs);
         
         const counters: { [key: string]: number } = {};
         mockCRs.forEach(cr => {
