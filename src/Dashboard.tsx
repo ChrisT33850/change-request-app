@@ -151,13 +151,13 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     const initializeApp = async () => {
       setLoading(true);
       
-      const githubData = await loadFromGitHub();
+      const SupabaseData = await loadFromSupabase();
       
-      if (githubData && githubData.length > 0) {
-        setChangeRequests(githubData);
+      if (SupabaseData && SupabaseData.length > 0) {
+        setChangeRequests(SupabaseData);
         
         const counters: { [key: string]: number } = {};
-        githubData.forEach(cr => {
+        SupabaseData.forEach(cr => {
           const prefix = cr.id.split('-')[1];
           counters[prefix] = Math.max(counters[prefix] || 0, parseInt(cr.id.split('-')[2]) || 0);
         });
