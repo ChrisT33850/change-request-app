@@ -165,8 +165,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         });
         setCrCounters(counters);
       } else {
-        const mockCRs: CR[] = [
-                 setChangeRequests(mockCRs);
+        const mockCRs: CR[] = [];
+
+        setChangeRequests(mockCRs);
         
         const counters: { [key: string]: number } = {};
         mockCRs.forEach(cr => {
@@ -417,57 +418,57 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         </div>
       )}
 
-     {showSignaturePopup && (
-  <div className="modal-overlay" onClick={() => setShowSignaturePopup(false)}>
-    <div className="modal-content signature-popup" onClick={(e) => e.stopPropagation()}>
-      <div className="modal-header">
-        <h2>Welcome, {USER_NAMES[currentUser] || currentUser}! 👋</h2>
-        <button className="btn-close" onClick={() => setShowSignaturePopup(false)}>✕</button>
-      </div>
-      <div className="modal-body">
-        <p>You have pending signatures on the following Change Requests:</p>
-        <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-          {changeRequests
-            .filter(cr => {
-              const pending = getPendingSigners(cr);
-              return pending.includes(currentUser);
-            })
-            .map(cr => (
-              <div
-                key={cr.id}
-                style={{
-                  padding: '10px',
-                  marginBottom: '8px',
-                  backgroundColor: '#f0f9ff',
-                  border: '1px solid #00b0db',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = '#e0f7ff';
-                  e.currentTarget.style.borderColor = '#0099c1';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f0f9ff';
-                  e.currentTarget.style.borderColor = '#00b0db';
-                }}
-                onClick={() => {
-                  setSelectedCR(cr);
-                  setShowSignaturePopup(false);
-                }}
-              >
-                <div style={{ fontWeight: 600, color: '#00b0db' }}>{cr.id}</div>
-                <div style={{ fontSize: '14px', color: '#1f2937', marginTop: '4px' }}>
-                  {cr.title}
-                </div>
+      {showSignaturePopup && (
+        <div className="modal-overlay" onClick={() => setShowSignaturePopup(false)}>
+          <div className="modal-content signature-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Welcome, {USER_NAMES[currentUser] || currentUser}! 👋</h2>
+              <button className="btn-close" onClick={() => setShowSignaturePopup(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p>You have pending signatures on the following Change Requests:</p>
+              <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+                {changeRequests
+                  .filter(cr => {
+                    const pending = getPendingSigners(cr);
+                    return pending.includes(currentUser);
+                  })
+                  .map(cr => (
+                    <div
+                      key={cr.id}
+                      style={{
+                        padding: '10px',
+                        marginBottom: '8px',
+                        backgroundColor: '#f0f9ff',
+                        border: '1px solid #00b0db',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.backgroundColor = '#e0f7ff';
+                        e.currentTarget.style.borderColor = '#0099c1';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f0f9ff';
+                        e.currentTarget.style.borderColor = '#00b0db';
+                      }}
+                      onClick={() => {
+                        setSelectedCR(cr);
+                        setShowSignaturePopup(false);
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, color: '#00b0db' }}>{cr.id}</div>
+                      <div style={{ fontSize: '14px', color: '#1f2937', marginTop: '4px' }}>
+                        {cr.title}
+                      </div>
+                    </div>
+                  ))}
               </div>
-            ))}
-        </div>
-        <p className="signature-hint" style={{ marginTop: '15px' }}>
-          Click on a CR to view and sign it.
-        </p>
-      </div>
+              <p className="signature-hint" style={{ marginTop: '15px' }}>
+                Click on a CR to view and sign it.
+              </p>
+            </div>
             <div className="modal-footer">
               <button className="btn-submit" onClick={() => setShowSignaturePopup(false)}>
                 Got it!
