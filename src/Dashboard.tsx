@@ -87,11 +87,12 @@ interface DashboardProps {
 }
 
 const AVAILABLE_STAKEHOLDERS = [
-  'marie.dupont',
-  'jean.bernard',
-  'pierre.leclerc',
-  'qa.team',
-  'user.acceptance',
+  'marco.fallea',
+  'michael.hamadouche',
+  'arianne.bryant',
+  'ernesto.filizzola',
+  'kevin.allan',
+  'joan.pascual',
 ];
 
 const PROJECTS: { [key: string]: string } = {
@@ -107,11 +108,12 @@ const PROJECT_LIST = Object.keys(PROJECTS);
 
 const USER_NAMES: { [key: string]: string } = {
   'christophe': 'Christophe Trevise',
-  'marie.dupont': 'Marie Dupont',
-  'jean.bernard': 'Jean Bernard',
-  'pierre.leclerc': 'Pierre Leclerc',
-  'qa.team': 'QA Team',
-  'user.acceptance': 'User Acceptance',
+  'marco.fallea': 'Marco Fallea',
+  'michael.hamadouche': 'Michael Hamadouche',
+  'arianne.bryant': 'Arianne Bryant',
+  'ernesto.filizzola': 'Ernesto Filizzola',
+  'kevin.allan': 'Kevin Allan',
+  'joan.pascual': 'Joan Pascual',
 };
 
 const IMPACT_OPTIONS = ['Yes', 'No', 'NA', 'TBD'];
