@@ -132,6 +132,10 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [crCounters, setCrCounters] = useState<{ [key: string]: number }>({});
   const [editingStatus, setEditingStatus] = useState<string | null>(null);
 
+  // --- Online signature (typed name + confirmation checkbox) ---
+  const [signatureNameInput, setSignatureNameInput] = useState('');
+  const [signatureConfirmed, setSignatureConfirmed] = useState(false);
+
   const [formData, setFormData] = useState<CreateFormData>({
     title: '',
     project: '',
@@ -152,12 +156,14 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   useEffect(() => {
     const initializeApp = async () => {
       setLoading(true);
-      
+
       const SupabaseData = await loadFromSupabase();
-      
+      let loadedCRs: CR[] = [];
+
       if (SupabaseData && SupabaseData.length > 0) {
+        loadedCRs = SupabaseData;
         setChangeRequests(SupabaseData);
-        
+
         const counters: { [key: string]: number } = {};
         SupabaseData.forEach(cr => {
           const prefix = cr.id.split('-')[1];
@@ -166,9 +172,10 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         setCrCounters(counters);
       } else {
         const mockCRs: CR[] = [];
+        loadedCRs = mockCRs;
 
         setChangeRequests(mockCRs);
-        
+
         const counters: { [key: string]: number } = {};
         mockCRs.forEach(cr => {
           const prefix = cr.id.split('-')[1];
@@ -176,13 +183,30 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         });
         setCrCounters(counters);
       }
-      
+
       setLoading(false);
-      setShowSignaturePopup(true);
+
+      // Deep-link support: ?cr=CC-XX-000 opens that CR directly (useful for
+      // notification/email/Slack links pointing straight to a CR pending signature)
+      const params = new URLSearchParams(window.location.search);
+      const crIdFromUrl = params.get('cr');
+      const targetCR = crIdFromUrl ? loadedCRs.find(c => c.id === crIdFromUrl) : null;
+
+      if (targetCR) {
+        setSelectedCR(targetCR);
+      } else {
+        setShowSignaturePopup(true);
+      }
     };
 
     initializeApp();
   }, []);
+
+  // Reset the signature form whenever a different CR is opened
+  useEffect(() => {
+    setSignatureNameInput('');
+    setSignatureConfirmed(false);
+  }, [selectedCR?.id]);
 
   const generateCRId = (project: string): string => {
     const prefix = PROJECTS[project] || 'GEN';
@@ -211,6 +235,34 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       case 'Deployed': return '#00bcd4';
       default: return '#999';
     }
+  };
+
+  // Builds a shareable, direct link to a specific CR
+  const getCRUrl = (crId: string): string => {
+    return `${window.location.origin}${window.location.pathname}?cr=${crId}`;
+  };
+
+  const copyLink = async (crId: string) => {
+    const url = getCRUrl(crId);
+    try {
+      await navigator.clipboard.writeText(url);
+      setSuccessMessage('🔗 Link copied to clipboard!');
+    } catch (err) {
+      window.prompt('Copy this link:', url);
+    }
+    setTimeout(() => setSuccessMessage(''), 2000);
+  };
+
+  // Opens a CR and reflects it in the URL so the view can be bookmarked/shared
+  const openCR = (cr: CR) => {
+    setSelectedCR(cr);
+    window.history.pushState({}, '', `?cr=${cr.id}`);
+  };
+
+  // Closes the detail modal and cleans the URL
+  const closeCRModal = () => {
+    setSelectedCR(null);
+    window.history.pushState({}, '', window.location.pathname);
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -250,7 +302,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
     const newId = generateCRId(formData.project);
     const requesterName = USER_NAMES[currentUser] || currentUser;
-    
+
     const allStakeholders = [requesterName, ...formData.stakeholders];
 
     const newCR: CR = {
@@ -292,9 +344,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setChangeRequests(updatedCRs);
     logActivity(newCR.id, 'CREATED', `Created CR: ${newCR.title}`);
     setSuccessMessage(`✅ CR ${newCR.id} created successfully!`);
-    
+
     await saveToSupabase(updatedCRs);
-    
+
     setFormData({
       title: '',
       project: '',
@@ -320,9 +372,21 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
   const handleSign = async () => {
     if (!selectedCR) return;
-    
+
     const currentUserName = USER_NAMES[currentUser] || currentUser;
-    
+
+    // Require the user to type their exact full name as an online signature
+    if (signatureNameInput.trim().toLowerCase() !== currentUserName.trim().toLowerCase()) {
+      alert(`Please type your full name exactly as shown ("${currentUserName}") to sign.`);
+      return;
+    }
+
+    // Require explicit confirmation
+    if (!signatureConfirmed) {
+      alert('Please check the confirmation box before signing.');
+      return;
+    }
+
     // Initialiser workflow si nécessaire
     if (!selectedCR.workflow) {
       selectedCR.workflow = {};
@@ -333,14 +397,14 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         requiredSignatories: []
       };
     }
-    
+
     // Vérifier si déjà signé
     const alreadySigned = selectedCR.workflow.awaitingValidation.signatures.some(s => s.userId === currentUser);
     if (alreadySigned) {
       alert('You already signed this CR!');
       return;
     }
-    
+
     // Ajouter la signature
     const newSignature: Signature = {
       userId: currentUser,
@@ -350,19 +414,22 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       decision: 'APPROVED',
       feedback: ''
     };
-    
+
     selectedCR.workflow.awaitingValidation.signatures.push(newSignature);
-    
+
     // Update l'état
     const updatedCRs = changeRequests.map(cr => cr.id === selectedCR.id ? selectedCR : cr);
     setChangeRequests(updatedCRs);
     setSelectedCR({ ...selectedCR });
-    
+
     logActivity(selectedCR.id, 'SIGNED', `Signed CR: ${selectedCR.title}`);
     setSuccessMessage(`✅ ${currentUserName} signed ${selectedCR.id}!`);
-    
+
+    setSignatureNameInput('');
+    setSignatureConfirmed(false);
+
     await saveToSupabase(updatedCRs);
-    
+
     setTimeout(() => {
       setSuccessMessage('');
     }, 3000);
@@ -373,11 +440,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       const updatedCRs = changeRequests.filter(cr => cr.id !== crId);
       setChangeRequests(updatedCRs);
       logActivity(crId, 'DELETED', `Deleted CR`);
-      setSelectedCR(null);
+      closeCRModal();
       setSuccessMessage(`✅ CR ${crId} deleted!`);
-      
+
       await saveToSupabase(updatedCRs);
-      
+
       setTimeout(() => setSuccessMessage(''), 2000);
     }
   };
@@ -386,19 +453,19 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     const updatedCRs = changeRequests.map(cr =>
       cr.id === crId ? { ...cr, currentStatus: newStatus } : cr
     );
-    
+
     setChangeRequests(updatedCRs);
     logActivity(crId, 'STATUS_CHANGED', `Status changed to: ${newStatus}`);
-    
+
     if (selectedCR?.id === crId) {
       setSelectedCR({ ...selectedCR, currentStatus: newStatus });
     }
-    
+
     setEditingStatus(null);
     setSuccessMessage(`✅ Status updated to ${newStatus}!`);
-    
+
     await saveToSupabase(updatedCRs);
-    
+
     setTimeout(() => setSuccessMessage(''), 2000);
   };
 
@@ -409,6 +476,13 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const userActivityLogs = auditLogs.filter(log => log.userId === currentUser);
 
   if (loading) return <div className="dashboard"><p>Loading...</p></div>;
+
+  const currentUserDisplayName = USER_NAMES[currentUser] || currentUser;
+  const isPendingSignerOnSelected = selectedCR ? getPendingSigners(selectedCR).includes(currentUser) : false;
+  const alreadySignedSelected = selectedCR
+    ? (selectedCR.workflow?.awaitingValidation?.signatures.some(s => s.userId === currentUser) ?? false)
+    : false;
+  const canSign = signatureNameInput.trim().toLowerCase() === currentUserDisplayName.trim().toLowerCase() && signatureConfirmed;
 
   return (
     <div className="dashboard">
@@ -422,7 +496,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         <div className="modal-overlay" onClick={() => setShowSignaturePopup(false)}>
           <div className="modal-content signature-popup" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Welcome, {USER_NAMES[currentUser] || currentUser}! 👋</h2>
+              <h2>Welcome, {currentUserDisplayName}! 👋</h2>
               <button className="btn-close" onClick={() => setShowSignaturePopup(false)}>✕</button>
             </div>
             <div className="modal-body">
@@ -442,7 +516,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                         backgroundColor: '#f0f9ff',
                         border: '1px solid #00b0db',
                         borderRadius: '6px',
-                        cursor: 'pointer',
                         transition: 'all 0.2s',
                       }}
                       onMouseOver={(e) => {
@@ -453,20 +526,47 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                         e.currentTarget.style.backgroundColor = '#f0f9ff';
                         e.currentTarget.style.borderColor = '#00b0db';
                       }}
-                      onClick={() => {
-                        setSelectedCR(cr);
-                        setShowSignaturePopup(false);
-                      }}
                     >
-                      <div style={{ fontWeight: 600, color: '#00b0db' }}>{cr.id}</div>
-                      <div style={{ fontSize: '14px', color: '#1f2937', marginTop: '4px' }}>
-                        {cr.title}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                        <a
+                          href={getCRUrl(cr.id)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            openCR(cr);
+                            setShowSignaturePopup(false);
+                          }}
+                          style={{ textDecoration: 'none', cursor: 'pointer', flex: 1 }}
+                        >
+                          <div style={{ fontWeight: 600, color: '#00b0db', textDecoration: 'underline' }}>{cr.id}</div>
+                          <div style={{ fontSize: '14px', color: '#1f2937', marginTop: '4px' }}>
+                            {cr.title}
+                          </div>
+                        </a>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyLink(cr.id);
+                          }}
+                          title="Copy direct link to this CR"
+                          style={{
+                            background: 'none',
+                            border: '1px solid #00b0db',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            color: '#00b0db',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          🔗 Copy link
+                        </button>
                       </div>
                     </div>
                   ))}
               </div>
               <p className="signature-hint" style={{ marginTop: '15px' }}>
-                Click on a CR to view and sign it.
+                Click a CR (or its link) to open it and sign online.
               </p>
             </div>
             <div className="modal-footer">
@@ -552,7 +652,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                     <td>€{(cr.impact.budgetEur / 1000).toFixed(0)}k</td>
                     <td>{cr.impact.delayDays}d</td>
                     <td className="actions-cell">
-                      <button className="btn-detail" onClick={() => setSelectedCR(cr)}>
+                      <button className="btn-detail" onClick={() => openCR(cr)}>
                         Details
                       </button>
                     </td>
@@ -574,7 +674,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 </div>
                 <div className="column-cards">
                   {statusCRs.map((cr) => (
-                    <div key={cr.id} className="kanban-card" onClick={() => setSelectedCR(cr)}>
+                    <div key={cr.id} className="kanban-card" onClick={() => openCR(cr)}>
                       <div className="card-header">
                         <span className="card-id">{cr.id}</span>
                       </div>
@@ -593,14 +693,14 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       )}
 
       {selectedCR && (
-        <div className="modal-overlay" onClick={() => setSelectedCR(null)}>
+        <div className="modal-overlay" onClick={closeCRModal}>
           <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div>
                 <h2>{selectedCR.id}</h2>
                 <p className="modal-subtitle">{selectedCR.title}</p>
               </div>
-              <button className="btn-close" onClick={() => setSelectedCR(null)}>✕</button>
+              <button className="btn-close" onClick={closeCRModal}>✕</button>
             </div>
 
             <div className="modal-body">
@@ -716,7 +816,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                   <label>Signed By</label>
                   <div className="signed-list">
                     {selectedCR.workflow.awaitingValidation.signatures.map((sig, idx) => (
-                      <span key={idx} className="signed-badge">✅ {sig.userName}</span>
+                      <span key={idx} className="signed-badge" title={new Date(sig.timestamp).toLocaleString()}>
+                        ✅ {sig.userName}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -751,9 +853,74 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 <p className="progress-text">{selectedCR.progressPercentage}% completed</p>
               </div>
 
+              {/* --- Online signature block: only shown to users still awaiting to sign --- */}
+              {isPendingSignerOnSelected && !alreadySignedSelected && (
+                <div
+                  className="detail-row signature-section"
+                  style={{
+                    background: '#f0f9ff',
+                    border: '1px solid #00b0db',
+                    borderRadius: '8px',
+                    padding: '15px',
+                    marginTop: '15px',
+                  }}
+                >
+                  <label>✍️ Your signature</label>
+                  <p style={{ fontSize: '13px', color: '#555', margin: '4px 0 10px' }}>
+                    To approve this Change Request, type your full name exactly as shown below and confirm.
+                  </p>
+                  <input
+                    type="text"
+                    placeholder={`Type "${currentUserDisplayName}"`}
+                    value={signatureNameInput}
+                    onChange={(e) => setSignatureNameInput(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      marginBottom: '10px',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', marginBottom: '12px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={signatureConfirmed}
+                      onChange={(e) => setSignatureConfirmed(e.target.checked)}
+                      style={{ marginTop: '2px' }}
+                    />
+                    <span>I confirm I have reviewed this Change Request and I approve it.</span>
+                  </label>
+                  <button
+                    className="btn-sign"
+                    onClick={handleSign}
+                    disabled={!canSign}
+                    style={{
+                      opacity: canSign ? 1 : 0.5,
+                      cursor: canSign ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    ✍️ Sign this CR
+                  </button>
+                </div>
+              )}
+
+              {alreadySignedSelected && (
+                <p style={{ color: '#4caf50', fontWeight: 600, marginTop: '15px' }}>
+                  ✅ You have already signed this CR.
+                </p>
+              )}
+
               <div className="modal-actions">
                 <button className="btn-edit">✏️ Edit</button>
-                <button className="btn-sign" onClick={handleSign}>✍️ Sign</button>
+                <button
+                  className="btn-share"
+                  onClick={() => copyLink(selectedCR.id)}
+                  title="Copy a direct link to this CR"
+                >
+                  🔗 Copy link
+                </button>
                 <button className="btn-download" onClick={() => generateWordDocument(selectedCR)}>
                   📄 Download Word
                 </button>
