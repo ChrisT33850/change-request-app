@@ -121,7 +121,7 @@ export const generateWordDocument = (cr: CR) => {
 
     Packer.toBlob(doc)
       .then((blob) => {
-        const safeTitle = (cr.title || cr.id).replace(/[^a-z0-9_\-]+/gi, '_');
+        const safeTitle = (cr.title || cr.id).replace(/[^a-z0-9_-]+/gi, '_');
         saveAs(blob, `${cr.id}-${safeTitle}.docx`);
       })
       .catch((err) => {
