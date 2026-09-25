@@ -86,6 +86,23 @@ body {
   transform: translateY(-2px);
 }
 
+.link-btn {
+  width: 100%;
+  padding: 10px;
+  background: none;
+  border: none;
+  color: #2b8fa8;
+  font-size: 13px;
+  font-family: Arial, Helvetica, sans-serif;
+  cursor: pointer;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
 .error-message {
   background-color: #fee;
   border: 1px solid #fcc;
