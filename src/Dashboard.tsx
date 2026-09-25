@@ -48,9 +48,21 @@ interface CR {
   risks?: string;
   benefits?: string;
   communicationRequired?: string;
+  justificationOfChange?: string;
+  listOfChanges?: string;
+  impactedFlow?: string;
+  impactedFlowVersion?: string;
+  implementationDate?: string;
+  newFlowVersion?: string;
+  testDate?: string;
+  testComments?: string;
   stakeholders?: string[];
   workflow?: {
     awaitingValidation?: {
+      signatures: Signature[];
+      requiredSignatories: string[];
+    };
+    testingValidation?: {
       signatures: Signature[];
       requiredSignatories: string[];
     };
@@ -68,6 +80,10 @@ interface CreateFormData {
   risks: string;
   benefits: string;
   communicationRequired: string;
+  justificationOfChange: string;
+  listOfChanges: string;
+  impactedFlow: string;
+  impactedFlowVersion: string;
   stakeholders: string[];
   impactTimeline: string;
   impactCosts: string;
@@ -140,6 +156,12 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [signatureNameInput, setSignatureNameInput] = useState('');
   const [signatureConfirmed, setSignatureConfirmed] = useState(false);
 
+  // --- Stage-specific editable fields (Implementation / Testing) ---
+  const [implDateInput, setImplDateInput] = useState('');
+  const [implFlowVersionInput, setImplFlowVersionInput] = useState('');
+  const [testDateInput, setTestDateInput] = useState('');
+  const [testCommentsInput, setTestCommentsInput] = useState('');
+
   const [formData, setFormData] = useState<CreateFormData>({
     title: '',
     project: '',
@@ -151,6 +173,10 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     risks: '',
     benefits: '',
     communicationRequired: 'No',
+    justificationOfChange: '',
+    listOfChanges: '',
+    impactedFlow: '',
+    impactedFlowVersion: '',
     stakeholders: [],
     impactTimeline: 'TBD',
     impactCosts: 'TBD',
@@ -208,10 +234,14 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     initializeApp();
   }, []);
 
-  // Reset the signature form whenever a different CR is opened
+  // Reset the signature form and stage fields whenever a different CR is opened
   useEffect(() => {
     setSignatureNameInput('');
     setSignatureConfirmed(false);
+    setImplDateInput(selectedCR?.implementationDate || '');
+    setImplFlowVersionInput(selectedCR?.newFlowVersion || '');
+    setTestDateInput(selectedCR?.testDate || '');
+    setTestCommentsInput(selectedCR?.testComments || '');
   }, [selectedCR?.id]);
 
   const generateCRId = (project: string): string => {
@@ -224,11 +254,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     return `CC-${prefix}-${String(counter).padStart(3, '0')}`;
   };
 
-  const getPendingSigners = (cr: CR): string[] => {
-    const awaitingVal = cr.workflow?.awaitingValidation;
-    if (!awaitingVal) return [];
-    const signed = awaitingVal.signatures.map((s) => s.userId);
-    return awaitingVal.requiredSignatories.filter((r) => !signed.includes(r));
+  const getPendingSigners = (cr: CR, stage: 'awaitingValidation' | 'testingValidation' = 'awaitingValidation'): string[] => {
+    const stageData = cr.workflow?.[stage];
+    if (!stageData) return [];
+    const signed = stageData.signatures.map((s) => s.userId);
+    return stageData.requiredSignatories.filter((r) => !signed.includes(r));
   };
 
   const getStatusColor = (status: string) => {
@@ -241,6 +271,29 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       case 'Deployed': return '#00bcd4';
       default: return '#999';
     }
+  };
+
+  const STEP_ORDER = ['Draft', 'Awaiting Validation', 'Approved', 'Implementation', 'Testing', 'Deployed'];
+
+  // Renders the horizontal step tracker ("chemin de suivi") for a CR's status
+  const renderStepper = (cr: CR) => {
+    const currentIndex = STEP_ORDER.indexOf(cr.currentStatus);
+    return (
+      <div className="cr-stepper">
+        {STEP_ORDER.map((step, idx) => {
+          const state = idx < currentIndex ? 'done' : idx === currentIndex ? 'current' : 'upcoming';
+          return (
+            <React.Fragment key={step}>
+              <div className={`stepper-node ${state}`}>
+                <div className="stepper-dot">{state === 'done' ? '✓' : idx + 1}</div>
+                <div className="stepper-label">{step}</div>
+              </div>
+              {idx < STEP_ORDER.length - 1 && <div className={`stepper-line ${idx < currentIndex ? 'done' : ''}`} />}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    );
   };
 
   // Builds a shareable, direct link to a specific CR
@@ -298,6 +351,30 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setAuditLogs(prev => [log, ...prev]);
   };
 
+  const handleSaveImplementation = async () => {
+    if (!selectedCR) return;
+    const updated: CR = { ...selectedCR, implementationDate: implDateInput, newFlowVersion: implFlowVersionInput };
+    const updatedCRs = changeRequests.map(cr => cr.id === updated.id ? updated : cr);
+    setChangeRequests(updatedCRs);
+    setSelectedCR(updated);
+    logActivity(updated.id, 'UPDATED', 'Updated implementation details');
+    setSuccessMessage('✅ Implementation details saved!');
+    await saveToSupabase(updatedCRs);
+    setTimeout(() => setSuccessMessage(''), 2000);
+  };
+
+  const handleSaveTesting = async () => {
+    if (!selectedCR) return;
+    const updated: CR = { ...selectedCR, testDate: testDateInput, testComments: testCommentsInput };
+    const updatedCRs = changeRequests.map(cr => cr.id === updated.id ? updated : cr);
+    setChangeRequests(updatedCRs);
+    setSelectedCR(updated);
+    logActivity(updated.id, 'UPDATED', 'Updated testing details');
+    setSuccessMessage('✅ Testing details saved!');
+    await saveToSupabase(updatedCRs);
+    setTimeout(() => setSuccessMessage(''), 2000);
+  };
+
   const handleCreateCR = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -345,6 +422,10 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       risks: formData.risks,
       benefits: formData.benefits,
       communicationRequired: formData.communicationRequired,
+      justificationOfChange: formData.justificationOfChange,
+      listOfChanges: formData.listOfChanges,
+      impactedFlow: formData.impactedFlow,
+      impactedFlowVersion: formData.impactedFlowVersion,
       stakeholders: allStakeholders,
     };
 
@@ -366,6 +447,10 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       risks: '',
       benefits: '',
       communicationRequired: 'No',
+      justificationOfChange: '',
+      listOfChanges: '',
+      impactedFlow: '',
+      impactedFlowVersion: '',
       stakeholders: [],
       impactTimeline: 'TBD',
       impactCosts: 'TBD',
@@ -380,7 +465,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }, 2000);
   };
 
-  const handleSign = async () => {
+  const handleSign = async (stage: 'awaitingValidation' | 'testingValidation' = 'awaitingValidation') => {
     if (!selectedCR) return;
 
     const currentUserName = USER_NAMES[currentUser] || currentUser;
@@ -401,15 +486,17 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     if (!selectedCR.workflow) {
       selectedCR.workflow = {};
     }
-    if (!selectedCR.workflow.awaitingValidation) {
-      selectedCR.workflow.awaitingValidation = {
+    if (!selectedCR.workflow[stage]) {
+      selectedCR.workflow[stage] = {
         signatures: [],
         requiredSignatories: []
       };
     }
 
+    const stageData = selectedCR.workflow[stage]!;
+
     // Vérifier si déjà signé
-    const alreadySigned = selectedCR.workflow.awaitingValidation.signatures.some(s => s.userId === currentUser);
+    const alreadySigned = stageData.signatures.some(s => s.userId === currentUser);
     if (alreadySigned) {
       alert('You already signed this CR!');
       return;
@@ -425,14 +512,14 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       feedback: ''
     };
 
-    selectedCR.workflow.awaitingValidation.signatures.push(newSignature);
+    stageData.signatures.push(newSignature);
 
     // Update l'état
     const updatedCRs = changeRequests.map(cr => cr.id === selectedCR.id ? selectedCR : cr);
     setChangeRequests(updatedCRs);
     setSelectedCR({ ...selectedCR });
 
-    logActivity(selectedCR.id, 'SIGNED', `Signed CR: ${selectedCR.title}`);
+    logActivity(selectedCR.id, 'SIGNED', `Signed CR (${stage === 'testingValidation' ? 'Testing' : 'Awaiting Validation'}): ${selectedCR.title}`);
     setSuccessMessage(`✅ ${currentUserName} signed ${selectedCR.id}!`);
 
     setSignatureNameInput('');
@@ -488,9 +575,13 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   if (loading) return <div className="dashboard"><p>Loading...</p></div>;
 
   const currentUserDisplayName = USER_NAMES[currentUser] || currentUser;
-  const isPendingSignerOnSelected = selectedCR ? getPendingSigners(selectedCR).includes(currentUser) : false;
+  const isPendingSignerOnSelected = selectedCR ? getPendingSigners(selectedCR, 'awaitingValidation').includes(currentUser) : false;
   const alreadySignedSelected = selectedCR
     ? (selectedCR.workflow?.awaitingValidation?.signatures.some(s => s.userId === currentUser) ?? false)
+    : false;
+  const isPendingTestSignerOnSelected = selectedCR ? getPendingSigners(selectedCR, 'testingValidation').includes(currentUser) : false;
+  const alreadySignedTestingSelected = selectedCR
+    ? (selectedCR.workflow?.testingValidation?.signatures.some(s => s.userId === currentUser) ?? false)
     : false;
   const canSign = signatureNameInput.trim().toLowerCase() === currentUserDisplayName.trim().toLowerCase() && signatureConfirmed;
 
@@ -714,6 +805,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
             </div>
 
             <div className="modal-body">
+              {renderStepper(selectedCR)}
+
               <div className="detail-row">
                 <label>Project</label>
                 <p>{selectedCR.project}</p>
@@ -795,7 +888,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
               {selectedCR.stakeholders && selectedCR.stakeholders.length > 0 && (
                 <div className="detail-row">
-                  <label>Stakeholders</label>
+                  <label>The Signatory</label>
                   <div className="stakeholders-list">
                     {selectedCR.stakeholders.map((stakeholder, idx) => (
                       <span key={idx} className="stakeholder-badge">{stakeholder}</span>
@@ -804,15 +897,53 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 </div>
               )}
 
-              {selectedCR.workflow?.awaitingValidation && (
+              {(selectedCR.justificationOfChange || selectedCR.listOfChanges || selectedCR.impactedFlow || selectedCR.impactedFlowVersion) && (
+                <div className="detail-row">
+                  <label>Change Details</label>
+                  <div className="change-details-grid">
+                    <div className="detail-item">
+                      <label>Justification of Change</label>
+                      <p>{selectedCR.justificationOfChange || 'N/A'}</p>
+                    </div>
+                    <div className="detail-item">
+                      <label>List of Changes</label>
+                      <p>{selectedCR.listOfChanges || 'N/A'}</p>
+                    </div>
+                    <div className="detail-item">
+                      <label>Impacted Flow</label>
+                      <p>{selectedCR.impactedFlow || 'N/A'}</p>
+                    </div>
+                    <div className="detail-item">
+                      <label>Impacted Flow Version</label>
+                      <p>{selectedCR.impactedFlowVersion || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedCR.currentStatus !== 'Implementation' && (selectedCR.implementationDate || selectedCR.newFlowVersion) && (
+                <div className="detail-row">
+                  <label>Implementation Record</label>
+                  <p>Date: {selectedCR.implementationDate || 'N/A'} — New Flow Version: {selectedCR.newFlowVersion || 'N/A'}</p>
+                </div>
+              )}
+
+              {selectedCR.currentStatus !== 'Testing' && (selectedCR.testDate || selectedCR.testComments) && (
+                <div className="detail-row">
+                  <label>Testing Record</label>
+                  <p>Date: {selectedCR.testDate || 'N/A'} — Comments: {selectedCR.testComments || 'N/A'}</p>
+                </div>
+              )}
+
+              {['Draft', 'Awaiting Validation'].includes(selectedCR.currentStatus) && selectedCR.workflow?.awaitingValidation && (
                 <div className="detail-row pending-section">
                   <label>Pending Signatures</label>
                   <div className="pending-list">
-                    {getPendingSigners(selectedCR).length === 0 ? (
+                    {getPendingSigners(selectedCR, 'awaitingValidation').length === 0 ? (
                       <p className="all-signed">✅ All signed!</p>
                     ) : (
                       <ul>
-                        {getPendingSigners(selectedCR).map(userId => (
+                        {getPendingSigners(selectedCR, 'awaitingValidation').map(userId => (
                           <li key={userId}>⏳ {USER_NAMES[userId] || userId}</li>
                         ))}
                       </ul>
@@ -821,7 +952,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 </div>
               )}
 
-              {selectedCR.workflow?.awaitingValidation?.signatures && selectedCR.workflow.awaitingValidation.signatures.length > 0 && (
+              {['Draft', 'Awaiting Validation'].includes(selectedCR.currentStatus) && selectedCR.workflow?.awaitingValidation?.signatures && selectedCR.workflow.awaitingValidation.signatures.length > 0 && (
                 <div className="detail-row">
                   <label>Signed By</label>
                   <div className="signed-list">
@@ -875,8 +1006,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 <p className="progress-text">{selectedCR.progressPercentage}% completed</p>
               </div>
 
-              {/* --- Online signature block: only shown to users still awaiting to sign --- */}
-              {isPendingSignerOnSelected && !alreadySignedSelected && (
+              {/* --- Online signature block: only shown to users still awaiting to sign, at the Awaiting Validation stage --- */}
+              {selectedCR.currentStatus === 'Awaiting Validation' && isPendingSignerOnSelected && !alreadySignedSelected && (
                 <div
                   className="detail-row signature-section"
                   style={{
@@ -916,7 +1047,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                   </label>
                   <button
                     className="btn-sign"
-                    onClick={handleSign}
+                    onClick={() => handleSign('awaitingValidation')}
                     disabled={!canSign}
                     style={{
                       opacity: canSign ? 1 : 0.5,
@@ -928,10 +1059,149 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 </div>
               )}
 
-              {alreadySignedSelected && (
+              {selectedCR.currentStatus === 'Awaiting Validation' && alreadySignedSelected && (
                 <p style={{ color: '#4caf50', fontWeight: 600, marginTop: '15px' }}>
                   ✅ You have already signed this CR.
                 </p>
+              )}
+
+              {/* --- Implementation stage: implementation date + new flow version --- */}
+              {selectedCR.currentStatus === 'Implementation' && (
+                <div
+                  className="detail-row stage-section"
+                  style={{ background: '#eff6ff', border: '1px solid #2196f3', borderRadius: '8px', padding: '15px', marginTop: '15px' }}
+                >
+                  <label>🛠️ Implementation Details</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '8px', marginBottom: '12px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                        Implementation Date
+                      </label>
+                      <input
+                        type="date"
+                        value={implDateInput}
+                        onChange={(e) => setImplDateInput(e.target.value)}
+                        style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                        New Flow Version
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. V4"
+                        value={implFlowVersionInput}
+                        onChange={(e) => setImplFlowVersionInput(e.target.value)}
+                        style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+                  <button className="btn-sign" onClick={handleSaveImplementation}>
+                    💾 Save Implementation Details
+                  </button>
+                </div>
+              )}
+
+              {/* --- Testing stage: test date + comments, plus its own signature step --- */}
+              {selectedCR.currentStatus === 'Testing' && (
+                <div
+                  className="detail-row stage-section"
+                  style={{ background: '#faf5ff', border: '1px solid #9c27b0', borderRadius: '8px', padding: '15px', marginTop: '15px' }}
+                >
+                  <label>🧪 Testing Details</label>
+                  <div style={{ marginTop: '8px', marginBottom: '12px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                      Test Date
+                    </label>
+                    <input
+                      type="date"
+                      value={testDateInput}
+                      onChange={(e) => setTestDateInput(e.target.value)}
+                      style={{ width: '100%', padding: '8px', marginBottom: '12px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+                    />
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                      Comments
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Test results, observations..."
+                      value={testCommentsInput}
+                      onChange={(e) => setTestCommentsInput(e.target.value)}
+                      style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box', fontFamily: 'Arial, sans-serif' }}
+                    />
+                  </div>
+                  <button className="btn-sign" onClick={handleSaveTesting}>
+                    💾 Save Testing Details
+                  </button>
+
+                  {getPendingSigners(selectedCR, 'testingValidation').length > 0 && (
+                    <div className="pending-list" style={{ marginTop: '15px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                        Pending Test Sign-off
+                      </label>
+                      <ul>
+                        {getPendingSigners(selectedCR, 'testingValidation').map(userId => (
+                          <li key={userId}>⏳ {USER_NAMES[userId] || userId}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {isPendingTestSignerOnSelected && !alreadySignedTestingSelected && (
+                    <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #d8b4fe' }}>
+                      <label>✍️ Your signature</label>
+                      <p style={{ fontSize: '13px', color: '#555', margin: '4px 0 10px' }}>
+                        To sign off on testing for this Change Request, type your full name exactly as shown below and confirm.
+                      </p>
+                      <input
+                        type="text"
+                        placeholder={`Type "${currentUserDisplayName}"`}
+                        value={signatureNameInput}
+                        onChange={(e) => setSignatureNameInput(e.target.value)}
+                        style={{ width: '100%', padding: '8px', marginBottom: '10px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+                      />
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', marginBottom: '12px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={signatureConfirmed}
+                          onChange={(e) => setSignatureConfirmed(e.target.checked)}
+                          style={{ marginTop: '2px' }}
+                        />
+                        <span>I confirm I have reviewed the test results and I approve them.</span>
+                      </label>
+                      <button
+                        className="btn-sign"
+                        onClick={() => handleSign('testingValidation')}
+                        disabled={!canSign}
+                        style={{ opacity: canSign ? 1 : 0.5, cursor: canSign ? 'pointer' : 'not-allowed' }}
+                      >
+                        ✍️ Sign Test Results
+                      </button>
+                    </div>
+                  )}
+
+                  {alreadySignedTestingSelected && (
+                    <p style={{ color: '#4caf50', fontWeight: 600, marginTop: '15px' }}>
+                      ✅ You have already signed the test results for this CR.
+                    </p>
+                  )}
+
+                  {selectedCR.workflow?.testingValidation?.signatures && selectedCR.workflow.testingValidation.signatures.length > 0 && (
+                    <div style={{ marginTop: '12px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                        Signed By
+                      </label>
+                      <div className="signed-list">
+                        {selectedCR.workflow.testingValidation.signatures.map((sig, idx) => (
+                          <span key={idx} className="signed-badge" title={new Date(sig.timestamp).toLocaleString()}>
+                            ✅ {sig.userName}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               <div className="modal-actions">
@@ -1101,6 +1371,55 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
                 <div className="form-row">
                   <div className="form-group full">
+                    <label>Justification of Change</label>
+                    <textarea
+                      name="justificationOfChange"
+                      value={formData.justificationOfChange}
+                      onChange={handleFormChange}
+                      placeholder="Why is this change necessary?"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>List of Changes</label>
+                    <textarea
+                      name="listOfChanges"
+                      value={formData.listOfChanges}
+                      onChange={handleFormChange}
+                      placeholder="Detail each change to be made..."
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Impacted Flow</label>
+                    <input
+                      type="text"
+                      name="impactedFlow"
+                      value={formData.impactedFlow}
+                      onChange={handleFormChange}
+                      placeholder="e.g. Screen_Sub_Case_Intake_Core"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Impacted Flow Version</label>
+                    <input
+                      type="text"
+                      name="impactedFlowVersion"
+                      value={formData.impactedFlowVersion}
+                      onChange={handleFormChange}
+                      placeholder="e.g. V4"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
                     <label>Benefits</label>
                     <textarea
                       name="benefits"
@@ -1189,7 +1508,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
                 <div className="form-row">
                   <div className="form-group full">
-                    <label>Stakeholders (Requester auto-added)</label>
+                    <label>The Signatory (Requester auto-added)</label>
                     <div className="stakeholder-list">
                       {AVAILABLE_STAKEHOLDERS.map(stakeholder => (
                         <label key={stakeholder} className="checkbox-label">
