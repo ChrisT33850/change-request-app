@@ -7,7 +7,6 @@ interface CR {
   project: string;
   description: string;
   currentStatus: string;
-  progressPercentage: number;
   requesterName: string;
   dates: { created: string; deploymentPlanned: string | null };
   impact: { budgetEur: number; delayDays: number };
