@@ -235,6 +235,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   }, []);
 
   // Reset the signature form and stage fields whenever a different CR is opened
+  // (intentionally only depends on the CR id — not on its other fields — so that
+  // saving a stage field doesn't wipe out what the user is currently typing)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setSignatureNameInput('');
     setSignatureConfirmed(false);
