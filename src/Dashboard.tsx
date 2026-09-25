@@ -46,6 +46,8 @@ interface CR {
     status: string;
   };
   risks?: string;
+  benefits?: string;
+  communicationRequired?: string;
   stakeholders?: string[];
   workflow?: {
     awaitingValidation?: {
@@ -64,6 +66,8 @@ interface CreateFormData {
   delayDays: string;
   implementationDesc: string;
   risks: string;
+  benefits: string;
+  communicationRequired: string;
   stakeholders: string[];
   impactTimeline: string;
   impactCosts: string;
@@ -145,6 +149,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     delayDays: '',
     implementationDesc: '',
     risks: '',
+    benefits: '',
+    communicationRequired: 'No',
     stakeholders: [],
     impactTimeline: 'TBD',
     impactCosts: 'TBD',
@@ -337,6 +343,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         status: 'PENDING',
       },
       risks: formData.risks,
+      benefits: formData.benefits,
+      communicationRequired: formData.communicationRequired,
       stakeholders: allStakeholders,
     };
 
@@ -356,6 +364,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       delayDays: '',
       implementationDesc: '',
       risks: '',
+      benefits: '',
+      communicationRequired: 'No',
       stakeholders: [],
       impactTimeline: 'TBD',
       impactCosts: 'TBD',
@@ -838,12 +848,24 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 </div>
               )}
 
+              {selectedCR.benefits && (
+                <div className="detail-row">
+                  <label>Benefits</label>
+                  <p>{selectedCR.benefits}</p>
+                </div>
+              )}
+
               {selectedCR.risks && (
                 <div className="detail-row">
                   <label>Risks</label>
                   <p>{selectedCR.risks}</p>
                 </div>
               )}
+
+              <div className="detail-row">
+                <label>User Communication Required</label>
+                <p>{selectedCR.communicationRequired === 'Yes' ? '✅ Yes' : '⬜ No'}</p>
+              </div>
 
               <div className="progress-section">
                 <label>Progress</label>
@@ -1079,6 +1101,19 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
                 <div className="form-row">
                   <div className="form-group full">
+                    <label>Benefits</label>
+                    <textarea
+                      name="benefits"
+                      value={formData.benefits}
+                      onChange={handleFormChange}
+                      placeholder="Describe the expected benefits of this change..."
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
                     <label>Risks</label>
                     <textarea
                       name="risks"
@@ -1087,6 +1122,20 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                       placeholder="Identify potential risks..."
                       rows={3}
                     />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>User Communication Required?</label>
+                    <select
+                      name="communicationRequired"
+                      value={formData.communicationRequired}
+                      onChange={handleFormChange}
+                    >
+                      <option value="No">No</option>
+                      <option value="Yes">Yes</option>
+                    </select>
                   </div>
                 </div>
 
