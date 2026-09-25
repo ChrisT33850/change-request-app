@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 import { generateWordDocument } from './utils/wordGenerator';
 import { saveToSupabase, loadFromSupabase } from './utils/supabaseService';
+import { AVAILABLE_STAKEHOLDERS, USER_NAMES } from './utils/users';
 
 interface Signature {
   userId: string;
@@ -102,15 +103,6 @@ interface DashboardProps {
   currentUser: string;
 }
 
-const AVAILABLE_STAKEHOLDERS = [
-  'marco.fallea',
-  'michael.hamadouche',
-  'arianne.bryant',
-  'ernesto.filizzola',
-  'kevin.allan',
-  'joan.pascual',
-];
-
 const PROJECTS: { [key: string]: string } = {
   'Noventum': 'NV',
   'AI Pilot': 'AI',
@@ -121,16 +113,6 @@ const PROJECTS: { [key: string]: string } = {
 };
 
 const PROJECT_LIST = Object.keys(PROJECTS);
-
-const USER_NAMES: { [key: string]: string } = {
-  'christophe': 'Christophe Trevise',
-  'marco.fallea': 'Marco Fallea',
-  'michael.hamadouche': 'Michael Hamadouche',
-  'arianne.bryant': 'Arianne Bryant',
-  'ernesto.filizzola': 'Ernesto Filizzola',
-  'kevin.allan': 'Kevin Allan',
-  'joan.pascual': 'Joan Pascual',
-};
 
 const IMPACT_OPTIONS = ['Yes', 'No', 'NA', 'TBD'];
 
@@ -1501,7 +1483,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                   <div className="form-group full">
                     <label>The Signatory (Requester auto-added)</label>
                     <div className="stakeholder-list">
-                      {AVAILABLE_STAKEHOLDERS.map(stakeholder => (
+                      {AVAILABLE_STAKEHOLDERS.filter(u => u !== currentUser).map(stakeholder => (
                         <label key={stakeholder} className="checkbox-label">
                           <input
                             type="checkbox"
