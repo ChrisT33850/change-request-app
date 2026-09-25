@@ -95,3 +95,62 @@ export const loadFromSupabase = async (): Promise<CR[] | null> => {
     return null;
   }
 };
+
+// --- Projects (manageable from the app instead of hardcoded) ---
+
+export interface ProjectRow {
+  name: string;
+  code: string;
+}
+
+export const loadProjects = async (): Promise<ProjectRow[] | null> => {
+  try {
+    const { data, error } = await supabase.from('projects').select('*').order('name');
+
+    if (error) {
+      console.error('Load projects error:', error);
+      return null;
+    }
+
+    if (!data || data.length === 0) {
+      return null;
+    }
+
+    return data.map(row => ({ name: row.name, code: row.code }));
+  } catch (error) {
+    console.error('Error loading projects:', error);
+    return null;
+  }
+};
+
+export const addProject = async (name: string, code: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase.from('projects').insert({ name, code: code.toUpperCase() });
+
+    if (error) {
+      console.error('Add project error:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error adding project:', error);
+    return false;
+  }
+};
+
+export const deleteProject = async (name: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase.from('projects').delete().eq('name', name);
+
+    if (error) {
+      console.error('Delete project error:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    return false;
+  }
+};
