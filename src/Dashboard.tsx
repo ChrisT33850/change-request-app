@@ -273,6 +273,19 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }
   };
 
+  // Softer, pastel badge colors — same color coding as getStatusColor, less saturated
+  const getStatusBadgeStyle = (status: string): { backgroundColor: string; color: string } => {
+    switch (status) {
+      case 'Draft': return { backgroundColor: '#E5E7EB', color: '#4B5563' };
+      case 'Awaiting Validation': return { backgroundColor: '#FEF3C7', color: '#92400E' };
+      case 'Approved': return { backgroundColor: '#D1FAE5', color: '#065F46' };
+      case 'Implementation': return { backgroundColor: '#DBEAFE', color: '#1E40AF' };
+      case 'Testing': return { backgroundColor: '#F3E8FF', color: '#6B21A8' };
+      case 'Deployed': return { backgroundColor: '#CFFAFE', color: '#155E75' };
+      default: return { backgroundColor: '#E5E7EB', color: '#4B5563' };
+    }
+  };
+
   const STEP_ORDER = ['Draft', 'Awaiting Validation', 'Approved', 'Implementation', 'Testing', 'Deployed'];
 
   // Renders the horizontal step tracker ("chemin de suivi") for a CR's status
@@ -742,7 +755,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                     <td className="date-cell">{cr.dates.created}</td>
                     <td>{cr.requesterName}</td>
                     <td>
-                      <div className="status-badge" style={{ backgroundColor: getStatusColor(cr.currentStatus) }}>
+                      <div className="status-badge" style={getStatusBadgeStyle(cr.currentStatus)}>
                         {cr.currentStatus}
                       </div>
                     </td>
@@ -839,7 +852,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                     </select>
                   ) : (
                     <div className="status-row">
-                      <div className="status-badge" style={{ backgroundColor: getStatusColor(selectedCR.currentStatus), display: 'inline-block' }}>
+                      <div className="status-badge" style={{ ...getStatusBadgeStyle(selectedCR.currentStatus), display: 'inline-block' }}>
                         {selectedCR.currentStatus}
                       </div>
                       <button className="btn-edit-status" onClick={() => setEditingStatus(selectedCR.id)}>
