@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient';
+import { supabase } from './supabaseClient';
 
 // NOTE: adjust the import path above if your Supabase client is exported
 // from a different file (e.g. './supabaseClient' or './utils/supabaseService').
