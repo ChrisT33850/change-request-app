@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 import { generateWordDocument } from './utils/wordGenerator';
-import { saveToSupabase, loadFromSupabase } from './utils/supabaseService';
+import { saveToSupabase, loadFromSupabase, loadProjects, addProject, deleteProject } from './utils/supabaseService';
 import { AVAILABLE_STAKEHOLDERS, USER_NAMES } from './utils/users';
 
 interface Signature {
@@ -103,7 +103,8 @@ interface DashboardProps {
   currentUser: string;
 }
 
-const PROJECTS: { [key: string]: string } = {
+// Fallback used only if Supabase has no projects yet (first load / offline)
+const DEFAULT_PROJECTS: { [key: string]: string } = {
   'Noventum': 'NV',
   'AI Pilot': 'AI',
   'Messaging session': 'MS',
@@ -111,8 +112,6 @@ const PROJECTS: { [key: string]: string } = {
   'Knowledge': 'KL',
   'Service contract': 'SC',
 };
-
-const PROJECT_LIST = Object.keys(PROJECTS);
 
 const IMPACT_OPTIONS = ['Yes', 'No', 'NA', 'TBD'];
 
@@ -124,11 +123,18 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [selectedCR, setSelectedCR] = useState<CR | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState<CreateFormData | null>(null);
   const [showSignaturePopup, setShowSignaturePopup] = useState(false);
   const [loading, setLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState('');
   const [crCounters, setCrCounters] = useState<{ [key: string]: number }>({});
   const [editingStatus, setEditingStatus] = useState<string | null>(null);
+  const [projects, setProjects] = useState<{ [key: string]: string }>(DEFAULT_PROJECTS);
+  const [showManageProjects, setShowManageProjects] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectCode, setNewProjectCode] = useState('');
+  const [projectError, setProjectError] = useState('');
 
   // --- Online signature (typed name + confirmation checkbox) ---
   const [signatureConfirmed, setSignatureConfirmed] = useState(false);
@@ -164,7 +170,14 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     const initializeApp = async () => {
       setLoading(true);
 
-      const SupabaseData = await loadFromSupabase();
+      const [SupabaseData, projectRows] = await Promise.all([loadFromSupabase(), loadProjects()]);
+
+      if (projectRows && projectRows.length > 0) {
+        const projectMap: { [key: string]: string } = {};
+        projectRows.forEach(p => { projectMap[p.name] = p.code; });
+        setProjects(projectMap);
+      }
+
       let loadedCRs: CR[] = [];
 
       if (SupabaseData && SupabaseData.length > 0) {
@@ -219,7 +232,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   }, [selectedCR]);
 
   const generateCRId = (project: string): string => {
-    const prefix = PROJECTS[project] || 'GEN';
+    const prefix = projects[project] || 'GEN';
     const counter = (crCounters[prefix] || 0) + 1;
     setCrCounters(prev => ({
       ...prev,
@@ -373,6 +386,53 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setTimeout(() => setSuccessMessage(''), 2000);
   };
 
+  const handleAddProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProjectError('');
+
+    const name = newProjectName.trim();
+    const code = newProjectCode.trim().toUpperCase();
+
+    if (!name || !code) {
+      setProjectError('Merci de renseigner un nom et un code.');
+      return;
+    }
+    if (projects[name]) {
+      setProjectError('Ce projet existe déjà.');
+      return;
+    }
+    if (!/^[A-Z0-9]{2,8}$/.test(code)) {
+      setProjectError('Le code doit faire 2 à 8 caractères (lettres/chiffres).');
+      return;
+    }
+
+    const ok = await addProject(name, code);
+    if (ok) {
+      setProjects(prev => ({ ...prev, [name]: code }));
+      setNewProjectName('');
+      setNewProjectCode('');
+      setSuccessMessage(`✅ Projet "${name}" ajouté !`);
+      setTimeout(() => setSuccessMessage(''), 2000);
+    } else {
+      setProjectError("Erreur lors de l'ajout du projet.");
+    }
+  };
+
+  const handleDeleteProject = async (name: string) => {
+    if (!window.confirm(`Supprimer le projet "${name}" ? (les CR existants ne seront pas affectés)`)) return;
+
+    const ok = await deleteProject(name);
+    if (ok) {
+      setProjects(prev => {
+        const updated = { ...prev };
+        delete updated[name];
+        return updated;
+      });
+      setSuccessMessage(`✅ Projet "${name}" supprimé !`);
+      setTimeout(() => setSuccessMessage(''), 2000);
+    }
+  };
+
   const handleCreateCR = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -519,8 +579,102 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }, 3000);
   };
 
+  const openEditModal = (cr: CR) => {
+    setEditFormData({
+      title: cr.title || '',
+      project: cr.project || '',
+      description: cr.description || '',
+      deploymentDate: cr.dates?.deploymentPlanned || '',
+      budgetEur: cr.impact?.budgetEur?.toString() || '',
+      delayDays: cr.impact?.delayDays?.toString() || '',
+      implementationDesc: cr.implementation?.description || '',
+      risks: cr.risks || '',
+      benefits: cr.benefits || '',
+      communicationRequired: cr.communicationRequired || 'No',
+      justificationOfChange: cr.justificationOfChange || '',
+      listOfChanges: cr.listOfChanges || '',
+      impactedFlow: cr.impactedFlow || '',
+      impactedFlowVersion: cr.impactedFlowVersion || '',
+      stakeholders: cr.stakeholders || [],
+      impactTimeline: cr.impacts?.timeline || 'TBD',
+      impactCosts: cr.impacts?.costs || 'TBD',
+      impactKnowledge: cr.impacts?.knowledge || 'TBD',
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => prev ? { ...prev, [name]: value } : prev);
+  };
+
+  const handleEditStakeholderToggle = (stakeholder: string) => {
+    setEditFormData(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        stakeholders: prev.stakeholders.includes(stakeholder)
+          ? prev.stakeholders.filter(s => s !== stakeholder)
+          : [...prev.stakeholders, stakeholder],
+      };
+    });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCR || !editFormData) return;
+
+    const updated: CR = {
+      ...selectedCR,
+      title: editFormData.title,
+      description: editFormData.description,
+      dates: { ...selectedCR.dates, deploymentPlanned: editFormData.deploymentDate || null },
+      impact: {
+        budgetEur: parseInt(editFormData.budgetEur) || 0,
+        delayDays: parseInt(editFormData.delayDays) || 0,
+      },
+      impacts: {
+        timeline: editFormData.impactTimeline,
+        costs: editFormData.impactCosts,
+        knowledge: editFormData.impactKnowledge,
+      },
+      implementation: {
+        ...selectedCR.implementation,
+        description: editFormData.implementationDesc,
+      },
+      risks: editFormData.risks,
+      benefits: editFormData.benefits,
+      communicationRequired: editFormData.communicationRequired,
+      justificationOfChange: editFormData.justificationOfChange,
+      listOfChanges: editFormData.listOfChanges,
+      impactedFlow: editFormData.impactedFlow,
+      impactedFlowVersion: editFormData.impactedFlowVersion,
+      stakeholders: editFormData.stakeholders,
+    };
+
+    const updatedCRs = changeRequests.map(cr => cr.id === updated.id ? updated : cr);
+    setChangeRequests(updatedCRs);
+    setSelectedCR(updated);
+    logActivity(updated.id, 'UPDATED', `Edited CR: ${updated.title}`);
+    setSuccessMessage(`✅ ${updated.id} updated!`);
+
+    await saveToSupabase(updatedCRs);
+
+    setShowEditModal(false);
+    setTimeout(() => setSuccessMessage(''), 2000);
+  };
+
   const handleDeleteCR = async (crId: string) => {
-    if (window.confirm('Are you sure you want to delete this CR?')) {
+    const cr = changeRequests.find(c => c.id === crId);
+    const hasSignatures =
+      (cr?.workflow?.awaitingValidation?.signatures.length || 0) > 0 ||
+      (cr?.workflow?.testingValidation?.signatures.length || 0) > 0;
+
+    const confirmMessage = hasSignatures
+      ? `⚠️ This CR already has signatures on it. Are you SURE you want to permanently delete ${crId}?`
+      : `Are you sure you want to delete ${crId}?`;
+
+    if (window.confirm(confirmMessage)) {
       const updatedCRs = changeRequests.filter(cr => cr.id !== crId);
       setChangeRequests(updatedCRs);
       logActivity(crId, 'DELETED', `Deleted CR`);
@@ -686,6 +840,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         <div className="right-section">
           <button className="btn-activity" onClick={() => setShowActivityModal(true)}>
             📋 My Activity ({userActivityLogs.length})
+          </button>
+          <button className="btn-activity" onClick={() => setShowManageProjects(true)}>
+            ⚙️ Projects
           </button>
           <button className="btn-create" onClick={() => setShowCreateModal(true)}>
             Create CR
@@ -1194,7 +1351,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
               )}
 
               <div className="modal-actions">
-                <button className="btn-edit">✏️ Edit</button>
+                <button className="btn-edit" onClick={() => openEditModal(selectedCR)}>✏️ Edit</button>
                 <button
                   className="btn-share"
                   onClick={() => copyLink(selectedCR.id)}
@@ -1207,13 +1364,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 </button>
               </div>
 
-              {selectedCR.currentStatus === 'Draft' && (
-                <div className="modal-actions danger">
-                  <button className="btn-delete" onClick={() => handleDeleteCR(selectedCR.id)}>
-                    🗑️ Delete CR
-                  </button>
-                </div>
-              )}
+              <div className="modal-actions danger">
+                <button className="btn-delete" onClick={() => handleDeleteCR(selectedCR.id)}>
+                  🗑️ Delete CR
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1259,6 +1414,316 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         </div>
       )}
 
+      {showManageProjects && (
+        <div className="modal-overlay" onClick={() => setShowManageProjects(false)}>
+          <div className="modal-content" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>⚙️ Manage Projects</h2>
+              <button className="btn-close" onClick={() => setShowManageProjects(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: '20px' }}>
+                {Object.entries(projects).map(([name, code]) => (
+                  <div
+                    key={name}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px 12px',
+                      marginBottom: '8px',
+                      background: '#f9fafb',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    <span>
+                      <strong>{name}</strong>{' '}
+                      <span style={{ color: '#6b7280', fontSize: '12px' }}>({code})</span>
+                    </span>
+                    <button
+                      onClick={() => handleDeleteProject(name)}
+                      style={{
+                        background: 'none',
+                        border: '1px solid #ef4444',
+                        color: '#ef4444',
+                        borderRadius: '4px',
+                        padding: '4px 10px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                ))}
+                {Object.keys(projects).length === 0 && (
+                  <p style={{ color: '#9ca3af', fontSize: '14px' }}>No projects yet.</p>
+                )}
+              </div>
+
+              <form onSubmit={handleAddProject}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                  Add a new project
+                </label>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                  <input
+                    type="text"
+                    placeholder="Project name (e.g. Cloud Migration)"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    style={{ flex: 2, padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Code (e.g. CLOUD)"
+                    value={newProjectCode}
+                    onChange={(e) => setNewProjectCode(e.target.value)}
+                    maxLength={8}
+                    style={{ flex: 1, padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                  />
+                </div>
+                {projectError && <div className="error-message" style={{ marginBottom: '10px' }}>{projectError}</div>}
+                <button type="submit" className="btn-submit" style={{ width: '100%' }}>
+                  + Add Project
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && editFormData && selectedCR && (
+        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div className="modal-content create-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit {selectedCR.id}</h2>
+              <button className="btn-close" onClick={() => setShowEditModal(false)}>✕</button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="create-form">
+              <div className="modal-body">
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>Title *</label>
+                    <input
+                      type="text"
+                      name="title"
+                      value={editFormData.title}
+                      onChange={handleEditFormChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Project</label>
+                    <input type="text" value={editFormData.project} disabled style={{ background: '#f3f4f6' }} />
+                  </div>
+                  <div className="form-group">
+                    <label>Deployment Date</label>
+                    <input
+                      type="date"
+                      name="deploymentDate"
+                      value={editFormData.deploymentDate}
+                      onChange={handleEditFormChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Budget (€)</label>
+                    <input
+                      type="number"
+                      name="budgetEur"
+                      value={editFormData.budgetEur}
+                      onChange={handleEditFormChange}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Days</label>
+                    <input
+                      type="number"
+                      name="delayDays"
+                      value={editFormData.delayDays}
+                      onChange={handleEditFormChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>Description</label>
+                    <textarea
+                      name="description"
+                      value={editFormData.description}
+                      onChange={handleEditFormChange}
+                      rows={4}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>Benefits</label>
+                    <textarea
+                      name="benefits"
+                      value={editFormData.benefits}
+                      onChange={handleEditFormChange}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>Justification of Change</label>
+                    <textarea
+                      name="justificationOfChange"
+                      value={editFormData.justificationOfChange}
+                      onChange={handleEditFormChange}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>List of Changes</label>
+                    <textarea
+                      name="listOfChanges"
+                      value={editFormData.listOfChanges}
+                      onChange={handleEditFormChange}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Impacted Flow</label>
+                    <input
+                      type="text"
+                      name="impactedFlow"
+                      value={editFormData.impactedFlow}
+                      onChange={handleEditFormChange}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Impacted Flow Version</label>
+                    <input
+                      type="text"
+                      name="impactedFlowVersion"
+                      value={editFormData.impactedFlowVersion}
+                      onChange={handleEditFormChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>Implementation Plan</label>
+                    <textarea
+                      name="implementationDesc"
+                      value={editFormData.implementationDesc}
+                      onChange={handleEditFormChange}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>Risks</label>
+                    <textarea
+                      name="risks"
+                      value={editFormData.risks}
+                      onChange={handleEditFormChange}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>User Communication Required?</label>
+                    <select
+                      name="communicationRequired"
+                      value={editFormData.communicationRequired}
+                      onChange={handleEditFormChange}
+                    >
+                      <option value="No">No</option>
+                      <option value="Yes">Yes</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>Impacts</label>
+                    <div className="impacts-form-grid">
+                      <div className="impact-form-item">
+                        <label>Timeline</label>
+                        <select name="impactTimeline" value={editFormData.impactTimeline} onChange={handleEditFormChange}>
+                          {IMPACT_OPTIONS.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="impact-form-item">
+                        <label>Costs</label>
+                        <select name="impactCosts" value={editFormData.impactCosts} onChange={handleEditFormChange}>
+                          {IMPACT_OPTIONS.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="impact-form-item">
+                        <label>Knowledge</label>
+                        <select name="impactKnowledge" value={editFormData.impactKnowledge} onChange={handleEditFormChange}>
+                          {IMPACT_OPTIONS.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group full">
+                    <label>The Signatory</label>
+                    <div className="stakeholder-list">
+                      {AVAILABLE_STAKEHOLDERS.map(stakeholder => (
+                        <label key={stakeholder} className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={editFormData.stakeholders.includes(stakeholder)}
+                            onChange={() => handleEditStakeholderToggle(stakeholder)}
+                          />
+                          {USER_NAMES[stakeholder] || stakeholder}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn-cancel" onClick={() => setShowEditModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-submit">
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showCreateModal && (
         <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
           <div className="modal-content create-modal" onClick={(e) => e.stopPropagation()}>
@@ -1293,7 +1758,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                       required
                     >
                       <option value="">Select a project</option>
-                      {PROJECT_LIST.map(proj => (
+                      {Object.keys(projects).map(proj => (
                         <option key={proj} value={proj}>{proj}</option>
                       ))}
                     </select>
