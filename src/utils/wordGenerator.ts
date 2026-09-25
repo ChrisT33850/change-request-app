@@ -51,6 +51,9 @@ const COLOR_DARK = '1F1F1F';
 const COLOR_LIGHT_GREY = 'E8EEF1';
 const COLOR_WHITE = 'FFFFFF';
 const COLOR_GREY_TEXT = '888888';
+const COLOR_TITLE = '1C5F70'; // darker, more sober blue-teal for section titles
+const FONT_FAMILY = 'Arial';
+const RFONTS = `<w:rFonts w:ascii="${FONT_FAMILY}" w:hAnsi="${FONT_FAMILY}" w:cs="${FONT_FAMILY}"/>`;
 
 // Escapes text so it is safe to place inside XML content
 const esc = (value: string | number | null | undefined): string =>
@@ -93,26 +96,26 @@ const para = (text: string, opts: ParaOptions = {}): string => {
   const jc = align ? `<w:jc w:val="${align}"/>` : '';
 
   return `<w:p><w:pPr>${pBdr}<w:spacing w:before="${spacingBefore}" w:after="${spacingAfter}"/>${jc}</w:pPr>` +
-    `<w:r><w:rPr>${bold ? '<w:b/>' : ''}${italics ? '<w:i/>' : ''}<w:color w:val="${color}"/><w:sz w:val="${size}"/></w:rPr>` +
+    `<w:r><w:rPr>${RFONTS}${bold ? '<w:b/>' : ''}${italics ? '<w:i/>' : ''}<w:color w:val="${color}"/><w:sz w:val="${size}"/></w:rPr>` +
     `<w:t xml:space="preserve">${esc(text)}</w:t></w:r></w:p>`;
 };
 
 // A section title with a teal underline rule
 const sectionTitle = (text: string): string =>
-  para(text, { bold: true, size: 24, color: COLOR_TEAL, spacingBefore: 280, spacingAfter: 100, borderBottomColor: COLOR_TEAL });
+  para(text, { bold: true, size: 24, color: COLOR_TITLE, spacingBefore: 280, spacingAfter: 100, borderBottomColor: COLOR_TEAL });
 
-const bodyText = (text?: string): string => para(text || 'N/A', { size: 21, color: COLOR_DARK, spacingAfter: 160 });
+const bodyText = (text?: string): string => para(text || 'N/A', { size: 22, color: COLOR_DARK, spacingAfter: 160 });
 
 // One labeled row of the summary table (teal label cell / light grey value cell)
 const infoRow = (label: string, value: string): string => `
 <w:tr>
   <w:tc>
-    <w:tcPr><w:tcW w:w="2800" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${COLOR_TEAL}"/></w:tcPr>
-    <w:p><w:pPr><w:spacing w:after="40"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="${COLOR_WHITE}"/><w:sz w:val="21"/></w:rPr><w:t xml:space="preserve">${esc(label)}</w:t></w:r></w:p>
+    <w:tcPr><w:tcW w:w="2800" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${COLOR_TEAL}"/><w:tcMar><w:top w:w="100" w:type="dxa"/><w:bottom w:w="100" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar></w:tcPr>
+    <w:p><w:pPr><w:spacing w:after="40"/></w:pPr><w:r><w:rPr>${RFONTS}<w:b/><w:color w:val="${COLOR_WHITE}"/><w:sz w:val="22"/></w:rPr><w:t xml:space="preserve">${esc(label)}</w:t></w:r></w:p>
   </w:tc>
   <w:tc>
-    <w:tcPr><w:tcW w:w="7280" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${COLOR_LIGHT_GREY}"/></w:tcPr>
-    <w:p><w:pPr><w:spacing w:after="40"/></w:pPr><w:r><w:rPr><w:sz w:val="21"/></w:rPr><w:t xml:space="preserve">${esc(value || 'N/A')}</w:t></w:r></w:p>
+    <w:tcPr><w:tcW w:w="7280" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${COLOR_LIGHT_GREY}"/><w:tcMar><w:top w:w="100" w:type="dxa"/><w:bottom w:w="100" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar></w:tcPr>
+    <w:p><w:pPr><w:spacing w:after="40"/></w:pPr><w:r><w:rPr>${RFONTS}<w:sz w:val="22"/></w:rPr><w:t xml:space="preserve">${esc(value || 'N/A')}</w:t></w:r></w:p>
   </w:tc>
 </w:tr>`;
 
@@ -122,9 +125,9 @@ const buildDocumentXml = (cr: CR): string => {
   const commRequired = cr.communicationRequired || 'No';
 
   const header = [
-    para('CHANGE REQUEST', { bold: true, size: 18, color: COLOR_ACCENT, spacingAfter: 40 }),
-    para(cr.id, { bold: true, size: 40, color: COLOR_DARK, spacingAfter: 40 }),
-    para(cr.title || '', { italics: true, size: 24, color: COLOR_TEAL, spacingAfter: 240, borderBottomColor: COLOR_TEAL, borderBottomSize: 10 }),
+    para('CHANGE REQUEST', { bold: true, size: 18, color: COLOR_ACCENT, spacingAfter: 40, align: 'center' }),
+    para(cr.id, { bold: true, size: 40, color: COLOR_DARK, spacingAfter: 40, align: 'center' }),
+    para(cr.title || '', { italics: true, size: 24, color: COLOR_TEAL, spacingAfter: 240, align: 'center', borderBottomColor: COLOR_TEAL, borderBottomSize: 10 }),
   ].join('');
 
   const summaryTable = `
@@ -195,7 +198,6 @@ const buildDocumentXml = (cr: CR): string => {
     signatoriesSection,
     signaturesSection,
     testSignaturesSection,
-    sectionTitle('Progress'), bodyText(`${cr.progressPercentage ?? 0}% completed`),
     footer,
   ].join('');
 
@@ -210,6 +212,11 @@ const buildDocumentXml = (cr: CR): string => {
   xmlns:o="urn:schemas-microsoft-com:office:office"
   xmlns:v="urn:schemas-microsoft-com:vml"
   w:macrosPresent="no" w:embeddedObjPresent="no" w:ocxPresent="no" xml:space="preserve">
+  <w:docDefaults>
+    <w:rPrDefault>
+      <w:rPr>${RFONTS}<w:sz w:val="22"/></w:rPr>
+    </w:rPrDefault>
+  </w:docDefaults>
   <w:body>
     ${body}
     <w:sectPr>
