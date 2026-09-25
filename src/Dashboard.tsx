@@ -15,8 +15,6 @@ interface Signature {
 interface Impacts {
   timeline: string;
   costs: string;
-  quality: string;
-  teams: string;
   knowledge: string;
 }
 
@@ -87,8 +85,6 @@ interface CreateFormData {
   stakeholders: string[];
   impactTimeline: string;
   impactCosts: string;
-  impactQuality: string;
-  impactTeams: string;
   impactKnowledge: string;
 }
 
@@ -180,8 +176,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     stakeholders: [],
     impactTimeline: 'TBD',
     impactCosts: 'TBD',
-    impactQuality: 'TBD',
-    impactTeams: 'TBD',
     impactKnowledge: 'TBD',
   });
 
@@ -254,11 +248,22 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     return `CC-${prefix}-${String(counter).padStart(3, '0')}`;
   };
 
+  // Checks whether a "required signatory" entry refers to the same person as a
+  // given username — handles the fact that older records may store either the
+  // raw username (e.g. 'kevin.allan') or the display name (e.g. 'Kevin Allan')
+  const isSamePerson = (entry: string, username: string): boolean => {
+    return entry === username || entry === (USER_NAMES[username] || username);
+  };
+
   const getPendingSigners = (cr: CR, stage: 'awaitingValidation' | 'testingValidation' = 'awaitingValidation'): string[] => {
     const stageData = cr.workflow?.[stage];
-    if (!stageData) return [];
-    const signed = stageData.signatures.map((s) => s.userId);
-    return stageData.requiredSignatories.filter((r) => !signed.includes(r));
+    // Fall back to the CR's signatory list if this stage has no explicit
+    // requiredSignatories yet (e.g. legacy CRs created before this was tracked)
+    const required = (stageData?.requiredSignatories && stageData.requiredSignatories.length > 0)
+      ? stageData.requiredSignatories
+      : (cr.stakeholders || []);
+    const signedUserIds = stageData?.signatures.map((s) => s.userId) || [];
+    return required.filter((entry) => !signedUserIds.some((uid) => isSamePerson(entry, uid)));
   };
 
   const getStatusColor = (status: string) => {
@@ -420,8 +425,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       impacts: {
         timeline: formData.impactTimeline,
         costs: formData.impactCosts,
-        quality: formData.impactQuality,
-        teams: formData.impactTeams,
         knowledge: formData.impactKnowledge,
       },
       implementation: {
@@ -467,8 +470,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       stakeholders: [],
       impactTimeline: 'TBD',
       impactCosts: 'TBD',
-      impactQuality: 'TBD',
-      impactTeams: 'TBD',
       impactKnowledge: 'TBD',
     });
 
@@ -588,11 +589,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   if (loading) return <div className="dashboard"><p>Loading...</p></div>;
 
   const currentUserDisplayName = USER_NAMES[currentUser] || currentUser;
-  const isPendingSignerOnSelected = selectedCR ? getPendingSigners(selectedCR, 'awaitingValidation').includes(currentUser) : false;
+  const isPendingSignerOnSelected = selectedCR ? getPendingSigners(selectedCR, 'awaitingValidation').some(entry => isSamePerson(entry, currentUser)) : false;
   const alreadySignedSelected = selectedCR
     ? (selectedCR.workflow?.awaitingValidation?.signatures.some(s => s.userId === currentUser) ?? false)
     : false;
-  const isPendingTestSignerOnSelected = selectedCR ? getPendingSigners(selectedCR, 'testingValidation').includes(currentUser) : false;
+  const isPendingTestSignerOnSelected = selectedCR ? getPendingSigners(selectedCR, 'testingValidation').some(entry => isSamePerson(entry, currentUser)) : false;
   const alreadySignedTestingSelected = selectedCR
     ? (selectedCR.workflow?.testingValidation?.signatures.some(s => s.userId === currentUser) ?? false)
     : false;
@@ -618,8 +619,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
               <div style={{ marginTop: '15px', marginBottom: '15px' }}>
                 {changeRequests
                   .filter(cr => {
-                    const pending = getPendingSigners(cr);
-                    return pending.includes(currentUser);
+                    if (cr.currentStatus !== 'Awaiting Validation') return false;
+                    const pending = getPendingSigners(cr, 'awaitingValidation');
+                    return pending.some(entry => isSamePerson(entry, currentUser));
                   })
                   .map(cr => (
                     <div
@@ -745,7 +747,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
             </thead>
             <tbody>
               {filteredCRs.map((cr) => {
-                const pending = getPendingSigners(cr);
+                const pending = cr.currentStatus === 'Awaiting Validation' ? getPendingSigners(cr, 'awaitingValidation') : [];
                 const sigs = cr.workflow?.awaitingValidation?.signatures.length || 0;
                 return (
                   <tr key={cr.id} className="cr-row">
@@ -882,14 +884,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                     <div className="impact-item">
                       <span className="impact-label">Costs:</span>
                       <span className="impact-value">{selectedCR.impacts.costs}</span>
-                    </div>
-                    <div className="impact-item">
-                      <span className="impact-label">Quality:</span>
-                      <span className="impact-value">{selectedCR.impacts.quality}</span>
-                    </div>
-                    <div className="impact-item">
-                      <span className="impact-label">Teams:</span>
-                      <span className="impact-value">{selectedCR.impacts.teams}</span>
                     </div>
                     <div className="impact-item">
                       <span className="impact-label">Knowledge:</span>
@@ -1486,22 +1480,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                       <div className="impact-form-item">
                         <label>Costs</label>
                         <select name="impactCosts" value={formData.impactCosts} onChange={handleFormChange}>
-                          {IMPACT_OPTIONS.map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="impact-form-item">
-                        <label>Quality</label>
-                        <select name="impactQuality" value={formData.impactQuality} onChange={handleFormChange}>
-                          {IMPACT_OPTIONS.map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="impact-form-item">
-                        <label>Teams</label>
-                        <select name="impactTeams" value={formData.impactTeams} onChange={handleFormChange}>
                           {IMPACT_OPTIONS.map(opt => (
                             <option key={opt} value={opt}>{opt}</option>
                           ))}
