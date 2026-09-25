@@ -1,5 +1,5 @@
-import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, HeadingLevel } from 'docx';
-import { saveAs } from 'file-saver';
+// Generates a native "Word 2003 XML" (WordML) document — no external library
+// (no 'docx', no 'file-saver'). Word opens this format directly.
 
 interface CR {
   id: string;
@@ -21,6 +21,8 @@ interface CR {
   implementation?: { description?: string; technicalOwner?: string };
   tests?: { report?: string; status?: string };
   risks?: string;
+  benefits?: string;
+  communicationRequired?: string; // 'Yes' | 'No'
   stakeholders?: string[];
   workflow?: {
     awaitingValidation?: {
@@ -30,104 +32,175 @@ interface CR {
   };
 }
 
-// Small helper: builds a labeled row for the summary table
-const infoRow = (label: string, value: string): TableRow =>
-  new TableRow({
-    children: [
-      new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: label, bold: true })] })],
-        width: { size: 30, type: WidthType.PERCENTAGE },
-      }),
-      new TableCell({
-        children: [new Paragraph({ text: value || 'N/A' })],
-        width: { size: 70, type: WidthType.PERCENTAGE },
-      }),
-    ],
-  });
+// --- ACTEON brand palette (hex, no '#') ---
+const COLOR_TEAL = '2B8FA8';
+const COLOR_ACCENT = '00A0D2';
+const COLOR_DARK = '1F1F1F';
+const COLOR_LIGHT_GREY = 'E8EEF1';
+const COLOR_WHITE = 'FFFFFF';
+const COLOR_GREY_TEXT = '888888';
 
-const sectionTitle = (text: string): Paragraph =>
-  new Paragraph({
-    heading: HeadingLevel.HEADING_2,
-    spacing: { before: 240, after: 120 },
-    children: [new TextRun({ text, bold: true, size: 24 })],
-  });
+// Escapes text so it is safe to place inside XML content
+const esc = (value: string | number | null | undefined): string =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 
-export const generateWordDocument = (cr: CR) => {
+interface ParaOptions {
+  bold?: boolean;
+  italics?: boolean;
+  size?: number; // half-points, e.g. 22 = 11pt
+  color?: string;
+  align?: 'left' | 'center' | 'right';
+  spacingBefore?: number; // twentieths of a point
+  spacingAfter?: number;
+  borderBottomColor?: string;
+  borderBottomSize?: number;
+}
+
+// Builds a single <w:p> paragraph with one styled run
+const para = (text: string, opts: ParaOptions = {}): string => {
+  const {
+    bold = false,
+    italics = false,
+    size = 21,
+    color = COLOR_DARK,
+    align,
+    spacingBefore = 0,
+    spacingAfter = 120,
+    borderBottomColor,
+    borderBottomSize = 6,
+  } = opts;
+
+  const pBdr = borderBottomColor
+    ? `<w:pBdr><w:bottom w:val="single" w:sz="${borderBottomSize}" w:space="4" w:color="${borderBottomColor}"/></w:pBdr>`
+    : '';
+  const jc = align ? `<w:jc w:val="${align}"/>` : '';
+
+  return `<w:p><w:pPr>${pBdr}<w:spacing w:before="${spacingBefore}" w:after="${spacingAfter}"/>${jc}</w:pPr>` +
+    `<w:r><w:rPr>${bold ? '<w:b/>' : ''}${italics ? '<w:i/>' : ''}<w:color w:val="${color}"/><w:sz w:val="${size}"/></w:rPr>` +
+    `<w:t xml:space="preserve">${esc(text)}</w:t></w:r></w:p>`;
+};
+
+// A section title with a teal underline rule
+const sectionTitle = (text: string): string =>
+  para(text, { bold: true, size: 24, color: COLOR_TEAL, spacingBefore: 280, spacingAfter: 100, borderBottomColor: COLOR_TEAL });
+
+const bodyText = (text?: string): string => para(text || 'N/A', { size: 21, color: COLOR_DARK, spacingAfter: 160 });
+
+// One labeled row of the summary table (teal label cell / light grey value cell)
+const infoRow = (label: string, value: string): string => `
+<w:tr>
+  <w:tc>
+    <w:tcPr><w:tcW w:w="2600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${COLOR_TEAL}"/></w:tcPr>
+    <w:p><w:pPr><w:spacing w:after="40"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="${COLOR_WHITE}"/><w:sz w:val="20"/></w:rPr><w:t xml:space="preserve">${esc(label)}</w:t></w:r></w:p>
+  </w:tc>
+  <w:tc>
+    <w:tcPr><w:tcW w:w="6750" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${COLOR_LIGHT_GREY}"/></w:tcPr>
+    <w:p><w:pPr><w:spacing w:after="40"/></w:pPr><w:r><w:rPr><w:sz w:val="20"/></w:rPr><w:t xml:space="preserve">${esc(value || 'N/A')}</w:t></w:r></w:p>
+  </w:tc>
+</w:tr>`;
+
+const buildDocumentXml = (cr: CR): string => {
+  const signatures = cr.workflow?.awaitingValidation?.signatures || [];
+  const commRequired = cr.communicationRequired || 'No';
+
+  const header = [
+    para('CHANGE REQUEST', { bold: true, size: 18, color: COLOR_ACCENT, spacingAfter: 40 }),
+    para(cr.id, { bold: true, size: 40, color: COLOR_DARK, spacingAfter: 40 }),
+    para(cr.title || '', { italics: true, size: 24, color: COLOR_TEAL, spacingAfter: 240, borderBottomColor: COLOR_TEAL, borderBottomSize: 10 }),
+  ].join('');
+
+  const summaryTable = `
+<w:tbl>
+  <w:tblPr>
+    <w:tblW w:w="9350" w:type="dxa"/>
+    <w:tblBorders>
+      <w:top w:val="single" w:sz="4" w:color="CCCCCC"/>
+      <w:left w:val="single" w:sz="4" w:color="CCCCCC"/>
+      <w:bottom w:val="single" w:sz="4" w:color="CCCCCC"/>
+      <w:right w:val="single" w:sz="4" w:color="CCCCCC"/>
+      <w:insideH w:val="single" w:sz="4" w:color="CCCCCC"/>
+      <w:insideV w:val="single" w:sz="4" w:color="CCCCCC"/>
+    </w:tblBorders>
+  </w:tblPr>
+  <w:tblGrid><w:gridCol w:w="2600"/><w:gridCol w:w="6750"/></w:tblGrid>
+  ${infoRow('Project', cr.project)}
+  ${infoRow('Status', cr.currentStatus)}
+  ${infoRow('Requester', cr.requesterName)}
+  ${infoRow('Created', cr.dates?.created || 'N/A')}
+  ${infoRow('Budget (\u20ac)', cr.impact?.budgetEur?.toLocaleString() ?? '0')}
+  ${infoRow('Days', cr.impact?.delayDays?.toString() ?? '0')}
+  ${infoRow('User Communication Required', commRequired === 'Yes' ? 'Yes' : 'No')}
+</w:tbl>
+<w:p><w:pPr><w:spacing w:after="120"/></w:pPr></w:p>`;
+
+  const stakeholdersSection = cr.stakeholders && cr.stakeholders.length > 0
+    ? sectionTitle('Stakeholders') + bodyText(cr.stakeholders.join(', '))
+    : '';
+
+  const signaturesSection = signatures.length > 0
+    ? sectionTitle('Signatures') + signatures.map((sig) =>
+        para(`\u2713 ${sig.userName} \u2014 ${sig.decision} (${new Date(sig.timestamp).toLocaleString()})`, { size: 20, spacingAfter: 80 })
+      ).join('')
+    : '';
+
+  const footer = para(
+    `Generated on ${new Date().toLocaleString()} \u2014 Change Request Dashboard`,
+    { italics: true, size: 16, color: COLOR_GREY_TEXT, align: 'center', spacingBefore: 400 }
+  );
+
+  const body = [
+    header,
+    summaryTable,
+    sectionTitle('Description'), bodyText(cr.description),
+    sectionTitle('Benefits'), bodyText(cr.benefits),
+    sectionTitle('Implementation'), bodyText(cr.implementation?.description),
+    sectionTitle('Risks'), bodyText(cr.risks),
+    stakeholdersSection,
+    signaturesSection,
+    sectionTitle('Progress'), bodyText(`${cr.progressPercentage ?? 0}% completed`),
+    footer,
+  ].join('');
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<?mso-application progid="Word.Document"?>
+<w:wordDocument
+  xmlns:w="http://schemas.microsoft.com/office/word/2003/wordml"
+  xmlns:w10="urn:schemas-microsoft-com:office:word"
+  xmlns:sl="http://schemas.microsoft.com/schemaLibrary/2003/core"
+  xmlns:aml="http://schemas.microsoft.com/aml/2001/core"
+  xmlns:wx="http://schemas.microsoft.com/office/word/2003/auxHint"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+  xmlns:v="urn:schemas-microsoft-com:vml"
+  w:macrosPresent="no" w:embeddedObjPresent="no" w:ocxPresent="no" xml:space="preserve">
+  <w:body>
+    ${body}
+    <w:sectPr>
+      <w:pgMar w:top="1080" w:bottom="1080" w:left="1080" w:right="1080"/>
+    </w:sectPr>
+  </w:body>
+</w:wordDocument>`;
+};
+
+export const generateWordDocument = (cr: CR): void => {
   try {
-    const signatures = cr.workflow?.awaitingValidation?.signatures || [];
+    const xml = buildDocumentXml(cr);
+    // UTF-8 BOM so Word/Windows recognizes the encoding correctly
+    const blob = new Blob(['\ufeff', xml], { type: 'application/vnd.ms-word;charset=utf-8' });
+    const safeTitle = (cr.title || cr.id).replace(/[^a-z0-9_-]+/gi, '_');
 
-    const doc = new Document({
-      sections: [
-        {
-          children: [
-            new Paragraph({
-              children: [new TextRun({ text: `Change Request: ${cr.id}`, bold: true, size: 32 })],
-            }),
-            new Paragraph({
-              children: [new TextRun({ text: cr.title || '', size: 24, color: '00b0db' })],
-              spacing: { after: 200 },
-            }),
-
-            new Table({
-              width: { size: 100, type: WidthType.PERCENTAGE },
-              rows: [
-                infoRow('Project', cr.project),
-                infoRow('Status', cr.currentStatus),
-                infoRow('Requester', cr.requesterName),
-                infoRow('Created', cr.dates?.created || 'N/A'),
-                infoRow('Budget (€)', cr.impact?.budgetEur?.toLocaleString() ?? '0'),
-                infoRow('Days', cr.impact?.delayDays?.toString() ?? '0'),
-              ],
-            }),
-
-            sectionTitle('Description'),
-            new Paragraph({ text: cr.description || 'N/A' }),
-
-            sectionTitle('Implementation'),
-            new Paragraph({ text: cr.implementation?.description || 'N/A' }),
-
-            sectionTitle('Risks'),
-            new Paragraph({ text: cr.risks || 'N/A' }),
-
-            ...(cr.stakeholders && cr.stakeholders.length > 0
-              ? [
-                  sectionTitle('Stakeholders'),
-                  new Paragraph({ text: cr.stakeholders.join(', ') }),
-                ]
-              : []),
-
-            ...(signatures.length > 0
-              ? [
-                  sectionTitle('Signatures'),
-                  ...signatures.map(
-                    (sig) =>
-                      new Paragraph({
-                        children: [
-                          new TextRun({
-                            text: `✔ ${sig.userName} — ${sig.decision} (${new Date(sig.timestamp).toLocaleString()})`,
-                          }),
-                        ],
-                      })
-                  ),
-                ]
-              : []),
-
-            sectionTitle('Progress'),
-            new Paragraph({ text: `${cr.progressPercentage ?? 0}% completed` }),
-          ],
-        },
-      ],
-    });
-
-    Packer.toBlob(doc)
-      .then((blob) => {
-        const safeTitle = (cr.title || cr.id).replace(/[^a-z0-9_-]+/gi, '_');
-        saveAs(blob, `${cr.id}-${safeTitle}.docx`);
-      })
-      .catch((err) => {
-        console.error('Error generating Word document (Packer.toBlob):', err);
-        alert('An error occurred while generating the Word document. Check the browser console for details.');
-      });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${cr.id}-${safeTitle}.doc`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   } catch (err) {
     console.error('Error generating Word document:', err);
     alert('An error occurred while generating the Word document. Check the browser console for details.');
