@@ -131,7 +131,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [editingStatus, setEditingStatus] = useState<string | null>(null);
 
   // --- Online signature (typed name + confirmation checkbox) ---
-  const [signatureNameInput, setSignatureNameInput] = useState('');
   const [signatureConfirmed, setSignatureConfirmed] = useState(false);
 
   // --- Stage-specific editable fields (Implementation / Testing) ---
@@ -212,7 +211,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
   // Reset the signature form and stage fields whenever the selected CR changes
   useEffect(() => {
-    setSignatureNameInput('');
     setSignatureConfirmed(false);
     setImplDateInput(selectedCR?.implementationDate || '');
     setImplFlowVersionInput(selectedCR?.newFlowVersion || '');
@@ -466,13 +464,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
     const currentUserName = USER_NAMES[currentUser] || currentUser;
 
-    // Require the user to type their exact full name as an online signature
-    if (signatureNameInput.trim().toLowerCase() !== currentUserName.trim().toLowerCase()) {
-      alert(`Please type your full name exactly as shown ("${currentUserName}") to sign.`);
-      return;
-    }
-
-    // Require explicit confirmation
+    // Require explicit confirmation (identity is already established by the login session)
     if (!signatureConfirmed) {
       alert('Please check the confirmation box before signing.');
       return;
@@ -518,7 +510,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     logActivity(selectedCR.id, 'SIGNED', `Signed CR (${stage === 'testingValidation' ? 'Testing' : 'Awaiting Validation'}): ${selectedCR.title}`);
     setSuccessMessage(`✅ ${currentUserName} signed ${selectedCR.id}!`);
 
-    setSignatureNameInput('');
     setSignatureConfirmed(false);
 
     await saveToSupabase(updatedCRs);
@@ -579,7 +570,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const alreadySignedTestingSelected = selectedCR
     ? (selectedCR.workflow?.testingValidation?.signatures.some(s => s.userId === currentUser) ?? false)
     : false;
-  const canSign = signatureNameInput.trim().toLowerCase() === currentUserDisplayName.trim().toLowerCase() && signatureConfirmed;
+  const canSign = signatureConfirmed;
 
   return (
     <div className="dashboard">
@@ -1009,22 +1000,23 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 >
                   <label>✍️ Your signature</label>
                   <p style={{ fontSize: '13px', color: '#555', margin: '4px 0 10px' }}>
-                    To approve this Change Request, type your full name exactly as shown below and confirm.
+                    To approve this Change Request, confirm below.
                   </p>
-                  <input
-                    type="text"
-                    placeholder={`Type "${currentUserDisplayName}"`}
-                    value={signatureNameInput}
-                    onChange={(e) => setSignatureNameInput(e.target.value)}
+                  <div
                     style={{
                       width: '100%',
-                      padding: '8px',
+                      padding: '10px 12px',
                       marginBottom: '10px',
                       border: '1px solid #ccc',
                       borderRadius: '4px',
+                      background: '#f9fafb',
                       boxSizing: 'border-box',
+                      fontWeight: 600,
+                      color: '#1f2937',
                     }}
-                  />
+                  >
+                    Signing as: {currentUserDisplayName}
+                  </div>
                   <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', marginBottom: '12px', cursor: 'pointer' }}>
                     <input
                       type="checkbox"
@@ -1141,15 +1133,23 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                     <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #d8b4fe' }}>
                       <label>✍️ Your signature</label>
                       <p style={{ fontSize: '13px', color: '#555', margin: '4px 0 10px' }}>
-                        To sign off on testing for this Change Request, type your full name exactly as shown below and confirm.
+                        To sign off on testing for this Change Request, confirm below.
                       </p>
-                      <input
-                        type="text"
-                        placeholder={`Type "${currentUserDisplayName}"`}
-                        value={signatureNameInput}
-                        onChange={(e) => setSignatureNameInput(e.target.value)}
-                        style={{ width: '100%', padding: '8px', marginBottom: '10px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
-                      />
+                      <div
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          marginBottom: '10px',
+                          border: '1px solid #ccc',
+                          borderRadius: '4px',
+                          background: '#f9fafb',
+                          boxSizing: 'border-box',
+                          fontWeight: 600,
+                          color: '#1f2937',
+                        }}
+                      >
+                        Signing as: {currentUserDisplayName}
+                      </div>
                       <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', marginBottom: '12px', cursor: 'pointer' }}>
                         <input
                           type="checkbox"
