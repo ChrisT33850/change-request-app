@@ -988,7 +988,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                         {selectedCR.currentStatus}
                       </div>
                       <button className="btn-edit-status" onClick={() => setEditingStatus(selectedCR.id)}>
-                        Change
+                        Next
                       </button>
                     </div>
                   )}
