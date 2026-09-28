@@ -998,7 +998,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                       <div className="status-badge" style={{ ...getStatusBadgeStyle(selectedCR.currentStatus), display: 'inline-block' }}>
                         {selectedCR.currentStatus}
                       </div>
-                      <button className="btn-edit-status" onClick={() => setEditingStatus(selectedCR.id)}>
+                      <button className="btn-edit-status" onClick={() => handleNextStatus(selectedCR)}>
                         Next
                       </button>
                     </div>
