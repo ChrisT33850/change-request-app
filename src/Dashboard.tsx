@@ -980,20 +980,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 </div>
                 <div className="detail-item">
                   <label>Status</label>
-                  {editingStatus === selectedCR.id ? (
-                    <select
-                      value={selectedCR.currentStatus}
-                      onChange={(e) => handleStatusChange(selectedCR.id, e.target.value)}
-                      autoFocus
-                    >
-                      <option>Draft</option>
-                      <option>Awaiting Validation</option>
-                      <option>Approved</option>
-                      <option>Implementation</option>
-                      <option>Testing</option>
-                      <option>Deployed</option>
-                    </select>
-                  ) : (
+                 handleNextStatus(selectedCR)
                     <div className="status-row">
                       <div className="status-badge" style={{ ...getStatusBadgeStyle(selectedCR.currentStatus), display: 'inline-block' }}>
                         {selectedCR.currentStatus}
