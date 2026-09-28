@@ -285,6 +285,17 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   };
 
   const STEP_ORDER = ['Draft', 'Awaiting Validation', 'Approved', 'Implementation', 'Testing', 'Deployed'];
+  const handleNextStatus = async (cr: CR) => {
+  const currentIndex = STEP_ORDER.indexOf(cr.currentStatus);
+
+  if (currentIndex === -1 || currentIndex >= STEP_ORDER.length - 1) {
+    return;
+  }
+
+  const nextStatus = STEP_ORDER[currentIndex + 1];
+
+  await handleStatusChange(cr.id, nextStatus);
+};
 
   // Renders the horizontal step tracker ("chemin de suivi") for a CR's status
   const renderStepper = (cr: CR) => {
