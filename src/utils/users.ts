@@ -14,6 +14,8 @@ export const APP_USERS: AppUser[] = [
   { username: 'ernesto.filizzola', displayName: 'Ernesto Filizzola' },
   { username: 'kevin.allan', displayName: 'Kevin Allan' },
   { username: 'joan.pascual', displayName: 'Joan Pascual' },
+  { username: 'dave.koster', displayName: 'Dave Koster' },
+  { username: 'julie.pegues', displayName: 'Julie Pegues' },
 ];
 
 // username -> display name (used throughout the dashboard)
