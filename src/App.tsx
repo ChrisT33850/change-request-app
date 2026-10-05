@@ -253,10 +253,10 @@ const App: React.FC = () => {
         <div className="user-info">
           <span>Connecté en tant que: <strong>{currentUserDisplayName}</strong></span>
           <button onClick={() => setShowChangePassword(true)} className="logout-btn">
-            🔑 Mot de passe
+            🔑 Password
           </button>
           <button onClick={handleLogout} className="logout-btn">
-            Déconnexion
+            Disconnect
           </button>
         </div>
       </header>
