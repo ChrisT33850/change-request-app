@@ -886,10 +886,10 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
           <table className="cr-table">
             <thead>
               <tr>
+                <th>Created</th>
+                <th>Project</th>
                 <th>ID</th>
                 <th>Title</th>
-                <th>Project</th>
-                <th>Created</th>
                 <th>Requester</th>
                 <th>Status</th>
                 <th>Signatures</th>
