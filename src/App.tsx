@@ -256,7 +256,7 @@ const App: React.FC = () => {
             🔑 Password
           </button>
           <button onClick={handleLogout} className="logout-btn">
-            Disconnect
+            Log out
           </button>
         </div>
       </header>
