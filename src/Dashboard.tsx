@@ -979,16 +979,16 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                   <p>{selectedCR.requesterName}</p>
                 </div>
                 <div className="detail-item">
-                  <label>Status</label>
-                 handleNextStatus(selectedCR)
-                    <div className="status-row">
-                      <div className="status-badge" style={{ ...getStatusBadgeStyle(selectedCR.currentStatus), display: 'inline-block' }}>
-                        {selectedCR.currentStatus}
-                      </div>
-                      <button className="btn-edit-status" onClick={() => handleNextStatus(selectedCR)}>
-                        Next
-                      </button>
-                    </div>
+  <label>Status</label>
+  <div className="status-row">
+    <div className="status-badge" style={{ ...getStatusBadgeStyle(selectedCR.currentStatus), display: 'inline-block' }}>
+      {selectedCR.currentStatus}
+    </div>
+    <button className="btn-edit-status" onClick={() => handleNextStatus(selectedCR)}>
+      Next
+    </button>
+  </div>
+</div>
                   )}
                 </div>
                 <div className="detail-item">
