@@ -1970,14 +1970,23 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                     <label>The Signatory (Requester auto-added)</label>
                     <div className="stakeholder-list">
                       {AVAILABLE_STAKEHOLDERS.filter(u => u !== currentUser).map(stakeholder => (
-                        <label key={stakeholder} className="checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={formData.stakeholders.includes(stakeholder)}
-                            onChange={() => handleStakeholderToggle(stakeholder)}
-                          />
-                          {USER_NAMES[stakeholder] || stakeholder}
-                        </label>
+                                      <label
+                key={stakeholder}
+                className="checkbox-label"
+                onClick={() => handleStakeholderToggle(stakeholder)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  padding: '4px 0',
+                }}
+              >
+                <span style={{ fontSize: '18px', lineHeight: 1 }}>
+                  {formData.stakeholders.includes(stakeholder) ? '●' : '○'}
+                </span>
+                {USER_NAMES[stakeholder] || stakeholder}
+              </label>
                       ))}
                     </div>
                   </div>
