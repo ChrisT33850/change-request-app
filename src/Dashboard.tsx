@@ -129,7 +129,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [loading, setLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState('');
   const [crCounters, setCrCounters] = useState<{ [key: string]: number }>({});
-  const [editingStatus, setEditingStatus] = useState<string | null>(null);
   const [projects, setProjects] = useState<{ [key: string]: string }>(DEFAULT_PROJECTS);
   const [showManageProjects, setShowManageProjects] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
@@ -724,7 +723,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }
 
     setEditingStatus(null);
-    setSuccessMessage(`✅ Status updated to ${newStatus}!`);
+        setSuccessMessage(`✅ Status updated to ${newStatus}!`);
 
     await saveToSupabase(updatedCRs);
 
