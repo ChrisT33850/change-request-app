@@ -285,17 +285,30 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   };
 
   const STEP_ORDER = ['Draft', 'Awaiting Validation', 'Approved', 'Implementation', 'Testing', 'Deployed'];
+
   const handleNextStatus = async (cr: CR) => {
-  const currentIndex = STEP_ORDER.indexOf(cr.currentStatus);
+    const currentIndex = STEP_ORDER.indexOf(cr.currentStatus);
 
-  if (currentIndex === -1 || currentIndex >= STEP_ORDER.length - 1) {
-    return;
-  }
+    if (currentIndex === -1 || currentIndex >= STEP_ORDER.length - 1) {
+      return;
+    }
 
-  const nextStatus = STEP_ORDER[currentIndex + 1];
+    const nextStatus = STEP_ORDER[currentIndex + 1];
 
-  await handleStatusChange(cr.id, nextStatus);
-};
+    await handleStatusChange(cr.id, nextStatus);
+  };
+
+  const handlePreviousStatus = async (cr: CR) => {
+    const currentIndex = STEP_ORDER.indexOf(cr.currentStatus);
+
+    if (currentIndex <= 0) {
+      return;
+    }
+
+    const previousStatus = STEP_ORDER[currentIndex - 1];
+
+    await handleStatusChange(cr.id, previousStatus);
+  };
 
   // Renders the horizontal step tracker ("chemin de suivi") for a CR's status
   const renderStepper = (cr: CR) => {
@@ -979,17 +992,28 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                   <p>{selectedCR.requesterName}</p>
                 </div>
                 <div className="detail-item">
-  <label>Status</label>
-  <div className="status-row">
-    <div className="status-badge" style={{ ...getStatusBadgeStyle(selectedCR.currentStatus), display: 'inline-block' }}>
-      {selectedCR.currentStatus}
-    </div>
-    <button className="btn-edit-status" onClick={() => handleNextStatus(selectedCR)}>
-      Next
-    </button>
-  </div>
-</div>
-                  )}
+                  <label>Status</label>
+                  <div className="status-row">
+                    <button
+                      className="btn-edit-status"
+                      onClick={() => handlePreviousStatus(selectedCR)}
+                      disabled={STEP_ORDER.indexOf(selectedCR.currentStatus) <= 0}
+                      style={{ opacity: STEP_ORDER.indexOf(selectedCR.currentStatus) <= 0 ? 0.4 : 1 }}
+                    >
+                      ◀ Previous
+                    </button>
+                    <div className="status-badge" style={{ ...getStatusBadgeStyle(selectedCR.currentStatus), display: 'inline-block' }}>
+                      {selectedCR.currentStatus}
+                    </div>
+                    <button
+                      className="btn-edit-status"
+                      onClick={() => handleNextStatus(selectedCR)}
+                      disabled={STEP_ORDER.indexOf(selectedCR.currentStatus) >= STEP_ORDER.length - 1}
+                      style={{ opacity: STEP_ORDER.indexOf(selectedCR.currentStatus) >= STEP_ORDER.length - 1 ? 0.4 : 1 }}
+                    >
+                      Next ▶
+                    </button>
+                  </div>
                 </div>
                 <div className="detail-item">
                   <label>Budget</label>
