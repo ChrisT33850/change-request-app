@@ -722,8 +722,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       setSelectedCR({ ...selectedCR, currentStatus: newStatus });
     }
 
-    setEditingStatus(null);
-        setSuccessMessage(`✅ Status updated to ${newStatus}!`);
+    setSuccessMessage(`✅ Status updated to ${newStatus}!`);
 
     await saveToSupabase(updatedCRs);
 
@@ -904,11 +903,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 const sigs = cr.workflow?.awaitingValidation?.signatures.length || 0;
                 return (
                   <tr key={cr.id} className="cr-row">
-                    <<td className="date-cell">{cr.dates.created}</td>
-<td>{cr.project}</td>
-<td className="id-cell">{cr.id}</td>
-<td className="title-cell">{cr.title}</td>
-<td>{cr.requesterName}</td>
+                    <td className="date-cell">{cr.dates.created}</td>
+                    <td>{cr.project}</td>
+                    <td className="id-cell">{cr.id}</td>
+                    <td className="title-cell">{cr.title}</td>
+                    <td>{cr.requesterName}</td>
                     <td>
                       <div className="status-badge" style={getStatusBadgeStyle(cr.currentStatus)}>
                         {cr.currentStatus}
@@ -1180,21 +1179,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                   <p style={{ fontSize: '13px', color: '#555', margin: '4px 0 10px' }}>
                     To approve this Change Request, confirm below.
                   </p>
-                  <div
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      marginBottom: '10px',
-                      border: '1px solid #ccc',
-                      borderRadius: '4px',
-                      background: '#f9fafb',
-                      boxSizing: 'border-box',
-                      fontWeight: 600,
-                      color: '#1f2937',
-                    }}
-                  >
+                  <p style={{ fontWeight: 600, color: '#1f2937', margin: '0 0 12px' }}>
                     Signing as: {currentUserDisplayName}
-                  </div>
+                  </p>
                   <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', marginBottom: '12px', cursor: 'pointer' }}>
                     <input
                       type="checkbox"
@@ -1313,21 +1300,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                       <p style={{ fontSize: '13px', color: '#555', margin: '4px 0 10px' }}>
                         To sign off on testing for this Change Request, confirm below.
                       </p>
-                      <div
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          marginBottom: '10px',
-                          border: '1px solid #ccc',
-                          borderRadius: '4px',
-                          background: '#f9fafb',
-                          boxSizing: 'border-box',
-                          fontWeight: 600,
-                          color: '#1f2937',
-                        }}
-                      >
+                      <p style={{ fontWeight: 600, color: '#1f2937', margin: '0 0 12px' }}>
                         Signing as: {currentUserDisplayName}
-                      </div>
+                      </p>
                       <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', marginBottom: '12px', cursor: 'pointer' }}>
                         <input
                           type="checkbox"
@@ -1970,23 +1945,23 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                     <label>The Signatory (Requester auto-added)</label>
                     <div className="stakeholder-list">
                       {AVAILABLE_STAKEHOLDERS.filter(u => u !== currentUser).map(stakeholder => (
-                                      <label
-                key={stakeholder}
-                className="checkbox-label"
-                onClick={() => handleStakeholderToggle(stakeholder)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  cursor: 'pointer',
-                  padding: '4px 0',
-                }}
-              >
-                <span style={{ fontSize: '18px', lineHeight: 1 }}>
-                  {formData.stakeholders.includes(stakeholder) ? '●' : '○'}
-                </span>
-                {USER_NAMES[stakeholder] || stakeholder}
-              </label>
+                        <label
+                          key={stakeholder}
+                          className="checkbox-label"
+                          onClick={() => handleStakeholderToggle(stakeholder)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            cursor: 'pointer',
+                            padding: '4px 0',
+                          }}
+                        >
+                          <span style={{ fontSize: '18px', lineHeight: 1 }}>
+                            {formData.stakeholders.includes(stakeholder) ? '●' : '○'}
+                          </span>
+                          {USER_NAMES[stakeholder] || stakeholder}
+                        </label>
                       ))}
                     </div>
                   </div>
