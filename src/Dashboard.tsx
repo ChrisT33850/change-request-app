@@ -583,7 +583,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       feedback: ''
     };
 
-        stageData.signatures.push(newSignature);
+         stageData.signatures.push(newSignature);
 
     // Passage automatique à "Approved" quand tous les signataires ont signé
     // (uniquement à l'étape Awaiting Validation)
