@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 import { generateWordDocument } from './utils/wordGenerator';
-import { saveCR, deleteCRById, loadCRById, loadFromSupabase, loadProjects, addProject, deleteProject } from './utils/supabaseService';
+import { saveCR, deleteCRById, loadCRById, loadFromSupabase, loadProjects, addProject, deleteProject, saveAuditLog, loadAuditLogs } from './utils/supabaseService';
 import { AVAILABLE_STAKEHOLDERS, USER_NAMES } from './utils/users';
 
 interface Signature {
@@ -168,7 +168,13 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     const initializeApp = async () => {
       setLoading(true);
 
-      const [SupabaseData, projectRows] = await Promise.all([loadFromSupabase(), loadProjects()]);
+      const [SupabaseData, projectRows, storedLogs] = await Promise.all([
+        loadFromSupabase(),
+        loadProjects(),
+        loadAuditLogs(currentUser),
+      ]);
+
+      setAuditLogs(storedLogs);
 
       if (projectRows && projectRows.length > 0) {
         const projectMap: { [key: string]: string } = {};
@@ -218,7 +224,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     };
 
     initializeApp();
-  }, []);
+  }, [currentUser]);
 
   // Reset the signature form and stage fields whenever the selected CR changes
   useEffect(() => {
@@ -373,7 +379,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
   const logActivity = (crId: string, action: string, details: string) => {
     const log: AuditLog = {
-      id: `LOG-${Date.now()}`,
+      id: `LOG-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       timestamp: new Date().toISOString(),
       userId: currentUser,
       userName: USER_NAMES[currentUser] || currentUser,
@@ -382,6 +388,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       details,
     };
     setAuditLogs(prev => [log, ...prev]);
+    // Persist in Supabase (fire and forget) so the history survives a refresh
+    saveAuditLog(log);
   };
 
   // Saves a single CR (one row) to Supabase and warns the user if it fails
