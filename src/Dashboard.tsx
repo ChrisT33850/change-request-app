@@ -904,11 +904,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 const sigs = cr.workflow?.awaitingValidation?.signatures.length || 0;
                 return (
                   <tr key={cr.id} className="cr-row">
-                    <td className="id-cell">{cr.id}</td>
-                    <td className="title-cell">{cr.title}</td>
-                    <td>{cr.project}</td>
-                    <td className="date-cell">{cr.dates.created}</td>
-                    <td>{cr.requesterName}</td>
+                    <<td className="date-cell">{cr.dates.created}</td>
+<td>{cr.project}</td>
+<td className="id-cell">{cr.id}</td>
+<td className="title-cell">{cr.title}</td>
+<td>{cr.requesterName}</td>
                     <td>
                       <div className="status-badge" style={getStatusBadgeStyle(cr.currentStatus)}>
                         {cr.currentStatus}
