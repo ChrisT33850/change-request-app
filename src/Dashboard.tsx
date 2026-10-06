@@ -583,7 +583,18 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       feedback: ''
     };
 
-    stageData.signatures.push(newSignature);
+        stageData.signatures.push(newSignature);
+
+    // Passage automatique à "Approved" quand tous les signataires ont signé
+    // (uniquement à l'étape Awaiting Validation)
+    const allSigned =
+      stage === 'awaitingValidation' &&
+      selectedCR.currentStatus === 'Awaiting Validation' &&
+      getPendingSigners(selectedCR, 'awaitingValidation').length === 0;
+
+    if (allSigned) {
+      selectedCR.currentStatus = 'Approved';
+    }
 
     // Update l'état
     const updatedCRs = changeRequests.map(cr => cr.id === selectedCR.id ? selectedCR : cr);
@@ -591,7 +602,14 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setSelectedCR({ ...selectedCR });
 
     logActivity(selectedCR.id, 'SIGNED', `Signed CR (${stage === 'testingValidation' ? 'Testing' : 'Awaiting Validation'}): ${selectedCR.title}`);
-    setSuccessMessage(`✅ ${currentUserName} signed ${selectedCR.id}!`);
+    if (allSigned) {
+      logActivity(selectedCR.id, 'STATUS_CHANGED', 'Status automatically changed to: Approved (all signatories signed)');
+    }
+    setSuccessMessage(
+      allSigned
+        ? `✅ ${selectedCR.id} fully signed, status automatically set to Approved!`
+        : `✅ ${currentUserName} signed ${selectedCR.id}!`
+    );
 
     setSignatureConfirmed(false);
 
