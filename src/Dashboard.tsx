@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 import { generateWordDocument } from './utils/wordGenerator';
-import { saveToSupabase, loadFromSupabase, loadProjects, addProject, deleteProject } from './utils/supabaseService';
+import { saveCR, deleteCRById, loadCRById, loadFromSupabase, loadProjects, addProject, deleteProject } from './utils/supabaseService';
 import { AVAILABLE_STAKEHOLDERS, USER_NAMES } from './utils/users';
 
 interface Signature {
@@ -25,7 +25,6 @@ interface CR {
   project: string;
   description: string;
   currentStatus: string;
-  progressPercentage: number;
   requesterName: string;
   dates: {
     created: string;
@@ -309,7 +308,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     await handleStatusChange(cr.id, previousStatus);
   };
 
-  // Renders the horizontal step tracker ("chemin de suivi") for a CR's status
+  // Renders the horizontal step tracker for a CR's status
   const renderStepper = (cr: CR) => {
     const currentIndex = STEP_ORDER.indexOf(cr.currentStatus);
     return (
@@ -385,6 +384,16 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setAuditLogs(prev => [log, ...prev]);
   };
 
+  // Saves a single CR (one row) to Supabase and warns the user if it fails
+  const persistCR = async (cr: CR): Promise<boolean> => {
+    const ok = await saveCR(cr);
+    if (!ok) {
+      setSuccessMessage('❌ Save failed. Please refresh the page and try again.');
+      setTimeout(() => setSuccessMessage(''), 4000);
+    }
+    return ok;
+  };
+
   const handleSaveImplementation = async () => {
     if (!selectedCR) return;
     const updated: CR = { ...selectedCR, implementationDate: implDateInput, newFlowVersion: implFlowVersionInput };
@@ -393,7 +402,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setSelectedCR(updated);
     logActivity(updated.id, 'UPDATED', 'Updated implementation details');
     setSuccessMessage('✅ Implementation details saved!');
-    await saveToSupabase(updatedCRs);
+    await persistCR(updated);
     setTimeout(() => setSuccessMessage(''), 2000);
   };
 
@@ -405,7 +414,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setSelectedCR(updated);
     logActivity(updated.id, 'UPDATED', 'Updated testing details');
     setSuccessMessage('✅ Testing details saved!');
-    await saveToSupabase(updatedCRs);
+    await persistCR(updated);
     setTimeout(() => setSuccessMessage(''), 2000);
   };
 
@@ -417,15 +426,15 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     const code = newProjectCode.trim().toUpperCase();
 
     if (!name || !code) {
-      setProjectError('Merci de renseigner un nom et un code.');
+      setProjectError('Please enter both a name and a code.');
       return;
     }
     if (projects[name]) {
-      setProjectError('Ce projet existe déjà.');
+      setProjectError('This project already exists.');
       return;
     }
     if (!/^[A-Z0-9]{2,8}$/.test(code)) {
-      setProjectError('Le code doit faire 2 à 8 caractères (lettres/chiffres).');
+      setProjectError('The code must be 2 to 8 characters (letters/digits).');
       return;
     }
 
@@ -434,15 +443,15 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       setProjects(prev => ({ ...prev, [name]: code }));
       setNewProjectName('');
       setNewProjectCode('');
-      setSuccessMessage(`✅ Projet "${name}" ajouté !`);
+      setSuccessMessage(`✅ Project "${name}" added!`);
       setTimeout(() => setSuccessMessage(''), 2000);
     } else {
-      setProjectError("Erreur lors de l'ajout du projet.");
+      setProjectError('Error while adding the project.');
     }
   };
 
   const handleDeleteProject = async (name: string) => {
-    if (!window.confirm(`Supprimer le projet "${name}" ? (les CR existants ne seront pas affectés)`)) return;
+    if (!window.confirm(`Delete project "${name}"? (existing CRs will not be affected)`)) return;
 
     const ok = await deleteProject(name);
     if (ok) {
@@ -451,7 +460,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         delete updated[name];
         return updated;
       });
-      setSuccessMessage(`✅ Projet "${name}" supprimé !`);
+      setSuccessMessage(`✅ Project "${name}" deleted!`);
       setTimeout(() => setSuccessMessage(''), 2000);
     }
   };
@@ -475,7 +484,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       project: formData.project,
       description: formData.description,
       currentStatus: 'Draft',
-      progressPercentage: 10,
       requesterName: requesterName,
       dates: {
         created: new Date().toISOString().split('T')[0],
@@ -513,7 +521,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     logActivity(newCR.id, 'CREATED', `Created CR: ${newCR.title}`);
     setSuccessMessage(`✅ CR ${newCR.id} created successfully!`);
 
-    await saveToSupabase(updatedCRs);
+    await persistCR(newCR);
 
     setFormData({
       title: '',
@@ -553,27 +561,22 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       return;
     }
 
-    // Initialiser workflow si nécessaire
-    if (!selectedCR.workflow) {
-      selectedCR.workflow = {};
-    }
-    if (!selectedCR.workflow[stage]) {
-      selectedCR.workflow[stage] = {
-        signatures: [],
-        requiredSignatories: []
-      };
-    }
+    // Work from the latest version stored in Supabase so that a signature
+    // made by a colleague in the meantime is never overwritten
+    const latest: CR = (await loadCRById(selectedCR.id)) || selectedCR;
 
-    const stageData = selectedCR.workflow[stage]!;
+    const currentStage: { signatures: Signature[]; requiredSignatories: string[] } =
+      latest.workflow?.[stage] || { signatures: [], requiredSignatories: [] };
 
-    // Vérifier si déjà signé
-    const alreadySigned = stageData.signatures.some(s => s.userId === currentUser);
-    if (alreadySigned) {
+    // Check if already signed
+    if (currentStage.signatures.some(s => s.userId === currentUser)) {
+      setChangeRequests(prev => prev.map(cr => cr.id === latest.id ? latest : cr));
+      setSelectedCR(latest);
       alert('You already signed this CR!');
       return;
     }
 
-    // Ajouter la signature
+    // Add the signature (immutable update)
     const newSignature: Signature = {
       userId: currentUser,
       userName: currentUserName,
@@ -583,37 +586,44 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       feedback: ''
     };
 
-         stageData.signatures.push(newSignature);
+    let updated: CR = {
+      ...latest,
+      workflow: {
+        ...latest.workflow,
+        [stage]: {
+          ...currentStage,
+          signatures: [...currentStage.signatures, newSignature],
+        },
+      },
+    };
 
-    // Passage automatique à "Approved" quand tous les signataires ont signé
-    // (uniquement à l'étape Awaiting Validation)
+    // Automatically move to "Approved" once every signatory has signed
+    // (only from the Awaiting Validation stage; manual status buttons still work)
     const allSigned =
       stage === 'awaitingValidation' &&
-      selectedCR.currentStatus === 'Awaiting Validation' &&
-      getPendingSigners(selectedCR, 'awaitingValidation').length === 0;
+      updated.currentStatus === 'Awaiting Validation' &&
+      getPendingSigners(updated, 'awaitingValidation').length === 0;
 
     if (allSigned) {
-      selectedCR.currentStatus = 'Approved';
+      updated = { ...updated, currentStatus: 'Approved' };
     }
 
-    // Update l'état
-    const updatedCRs = changeRequests.map(cr => cr.id === selectedCR.id ? selectedCR : cr);
-    setChangeRequests(updatedCRs);
-    setSelectedCR({ ...selectedCR });
+    setChangeRequests(prev => prev.map(cr => cr.id === updated.id ? updated : cr));
+    setSelectedCR(updated);
 
-    logActivity(selectedCR.id, 'SIGNED', `Signed CR (${stage === 'testingValidation' ? 'Testing' : 'Awaiting Validation'}): ${selectedCR.title}`);
+    logActivity(updated.id, 'SIGNED', `Signed CR (${stage === 'testingValidation' ? 'Testing' : 'Awaiting Validation'}): ${updated.title}`);
     if (allSigned) {
-      logActivity(selectedCR.id, 'STATUS_CHANGED', 'Status automatically changed to: Approved (all signatories signed)');
+      logActivity(updated.id, 'STATUS_CHANGED', 'Status automatically changed to: Approved (all signatories signed)');
     }
     setSuccessMessage(
       allSigned
-        ? `✅ ${selectedCR.id} fully signed, status automatically set to Approved!`
-        : `✅ ${currentUserName} signed ${selectedCR.id}!`
+        ? `✅ ${updated.id} fully signed, status automatically set to Approved!`
+        : `✅ ${currentUserName} signed ${updated.id}!`
     );
 
     setSignatureConfirmed(false);
 
-    await saveToSupabase(updatedCRs);
+    await persistCR(updated);
 
     setTimeout(() => {
       setSuccessMessage('');
@@ -699,7 +709,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     logActivity(updated.id, 'UPDATED', `Edited CR: ${updated.title}`);
     setSuccessMessage(`✅ ${updated.id} updated!`);
 
-    await saveToSupabase(updatedCRs);
+    await persistCR(updated);
 
     setShowEditModal(false);
     setTimeout(() => setSuccessMessage(''), 2000);
@@ -720,29 +730,29 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       setChangeRequests(updatedCRs);
       logActivity(crId, 'DELETED', `Deleted CR`);
       closeCRModal();
-      setSuccessMessage(`✅ CR ${crId} deleted!`);
-
-      await saveToSupabase(updatedCRs);
+      const ok = await deleteCRById(crId);
+      setSuccessMessage(ok ? `✅ CR ${crId} deleted!` : '❌ Delete failed. Please refresh the page and try again.');
 
       setTimeout(() => setSuccessMessage(''), 2000);
     }
   };
 
   const handleStatusChange = async (crId: string, newStatus: string) => {
-    const updatedCRs = changeRequests.map(cr =>
-      cr.id === crId ? { ...cr, currentStatus: newStatus } : cr
-    );
+    const existing = changeRequests.find(cr => cr.id === crId);
+    if (!existing) return;
 
-    setChangeRequests(updatedCRs);
+    const updated: CR = { ...existing, currentStatus: newStatus };
+
+    setChangeRequests(prev => prev.map(cr => cr.id === crId ? updated : cr));
     logActivity(crId, 'STATUS_CHANGED', `Status changed to: ${newStatus}`);
 
     if (selectedCR?.id === crId) {
-      setSelectedCR({ ...selectedCR, currentStatus: newStatus });
+      setSelectedCR(updated);
     }
 
     setSuccessMessage(`✅ Status updated to ${newStatus}!`);
 
-    await saveToSupabase(updatedCRs);
+    await persistCR(updated);
 
     setTimeout(() => setSuccessMessage(''), 2000);
   };
@@ -1171,14 +1181,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
               <div className="detail-row">
                 <label>User Communication Required</label>
                 <p>{selectedCR.communicationRequired === 'Yes' ? '✅ Yes' : '⬜ No'}</p>
-              </div>
-
-              <div className="progress-section">
-                <label>Progress</label>
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${selectedCR.progressPercentage}%` }}></div>
-                </div>
-                <p className="progress-text">{selectedCR.progressPercentage}% completed</p>
               </div>
 
               {/* --- Online signature block: only shown to users still awaiting to sign, at the Awaiting Validation stage --- */}
