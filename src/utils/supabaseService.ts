@@ -226,3 +226,68 @@ export const deleteProject = async (name: string): Promise<boolean> => {
     return false;
   }
 };
+
+// --- Audit log (persisted so "My Activity" survives a page refresh) ---
+
+export interface AuditLogRow {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  action: string;
+  crId: string;
+  details: string;
+}
+
+export const saveAuditLog = async (log: AuditLogRow): Promise<boolean> => {
+  try {
+    const { error } = await supabase.from('audit_logs').insert({
+      id: log.id,
+      logged_at: log.timestamp,
+      user_id: log.userId,
+      user_name: log.userName,
+      action: log.action,
+      cr_id: log.crId,
+      details: log.details,
+    });
+
+    if (error) {
+      console.error('Save audit log error:', error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('Error saving audit log:', error);
+    return false;
+  }
+};
+
+// Loads the most recent activity of one user (newest first)
+export const loadAuditLogs = async (userId: string): Promise<AuditLogRow[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('logged_at', { ascending: false })
+      .limit(200);
+
+    if (error || !data) {
+      if (error) console.error('Load audit logs error:', error);
+      return [];
+    }
+
+    return data.map(row => ({
+      id: row.id,
+      timestamp: row.logged_at,
+      userId: row.user_id,
+      userName: row.user_name,
+      action: row.action,
+      crId: row.cr_id,
+      details: row.details,
+    }));
+  } catch (error) {
+    console.error('Error loading audit logs:', error);
+    return [];
+  }
+};
