@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import Dashboard from './Dashboard';
-import { APP_USERS } from './utils/users';
+import { loadAppUsers, AppUserRow } from './utils/supabaseService';
 import { hasPasswordSet, setInitialPassword, verifyLogin, changePassword } from './utils/authService';
 
 type Step = 'select' | 'password' | 'setup';
@@ -14,9 +14,13 @@ const App: React.FC = () => {
     localStorage.getItem('user') || ''
   );
 
+  // --- Users list (loaded from Supabase instead of a hardcoded file) ---
+  const [appUsers, setAppUsers] = useState<AppUserRow[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+
   // --- Login wizard state ---
   const [step, setStep] = useState<Step>('select');
-  const [selectedUsername, setSelectedUsername] = useState<string>(APP_USERS[0]?.username || '');
+  const [selectedUsername, setSelectedUsername] = useState<string>('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -30,8 +34,23 @@ const App: React.FC = () => {
   const [changePasswordMessage, setChangePasswordMessage] = useState('');
   const [changePasswordError, setChangePasswordError] = useState('');
 
-  const selectedDisplayName = APP_USERS.find((u) => u.username === selectedUsername)?.displayName || selectedUsername;
-  const currentUserDisplayName = APP_USERS.find((u) => u.username === currentUser)?.displayName || currentUser;
+  useEffect(() => {
+    const init = async () => {
+      const users = await loadAppUsers();
+      setAppUsers(users || []);
+      setUsersLoading(false);
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (!usersLoading && appUsers.length > 0 && !selectedUsername) {
+      setSelectedUsername(appUsers[0].username);
+    }
+  }, [usersLoading, appUsers, selectedUsername]);
+
+  const selectedDisplayName = appUsers.find((u) => u.username === selectedUsername)?.displayName || selectedUsername;
+  const currentUserDisplayName = appUsers.find((u) => u.username === currentUser)?.displayName || currentUser;
 
   const resetLoginForm = () => {
     setPassword('');
@@ -153,6 +172,16 @@ const App: React.FC = () => {
   };
 
   if (!isAuthenticated) {
+    if (usersLoading) {
+      return (
+        <div className="login-container">
+          <div className="login-box">
+            <p>Chargement...</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="login-container">
         <div className="login-box">
@@ -166,7 +195,7 @@ const App: React.FC = () => {
                   value={selectedUsername}
                   onChange={(e) => setSelectedUsername(e.target.value)}
                 >
-                  {APP_USERS.map((u) => (
+                  {appUsers.map((u) => (
                     <option key={u.username} value={u.username}>
                       {u.displayName}
                     </option>
