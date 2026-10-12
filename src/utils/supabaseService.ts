@@ -5,6 +5,13 @@ export interface ImpactedFlowEntry {
   version: string;
 }
 
+export interface TaskLine {
+  task: string;
+  people: number;
+  qty: number;
+  status: 'Closed' | 'In Progress' | 'Not Open';
+}
+
 export interface CR {
   id: string;
   title: string;
@@ -29,6 +36,8 @@ export interface CR {
   newFlowVersion?: string;
   testDate?: string;
   testComments?: string;
+  actualBudgetTasks?: TaskLine[];
+  actualBudgetRate?: number;
   stakeholders?: string[];
   workflow?: any;
 }
@@ -62,6 +71,8 @@ const toRow = (cr: CR) => ({
     newFlowVersion: cr.newFlowVersion ?? '',
     testDate: cr.testDate ?? '',
     testComments: cr.testComments ?? '',
+    actualBudgetTasks: cr.actualBudgetTasks ?? [],
+    actualBudgetRate: cr.actualBudgetRate ?? 40,
   },
 });
 
@@ -99,6 +110,8 @@ const fromRow = (row: any): CR => {
     newFlowVersion: extra.newFlowVersion,
     testDate: extra.testDate,
     testComments: extra.testComments,
+    actualBudgetTasks: extra.actualBudgetTasks ?? [],
+    actualBudgetRate: extra.actualBudgetRate ?? 40,
   };
 };
 
