@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 import { generateWordDocument } from './utils/wordGenerator';
-import { saveCR, deleteCRById, loadCRById, loadFromSupabase, loadProjects, addProject, deleteProject, saveAuditLog, loadAuditLogs } from './utils/supabaseService';
-import { AVAILABLE_STAKEHOLDERS, USER_NAMES } from './utils/users';
+import {
+  saveCR, deleteCRById, loadCRById, loadFromSupabase,
+  loadProjects, addProject, deleteProject,
+  saveAuditLog, loadAuditLogs,
+  loadAppUsers, addStakeholder, deleteStakeholder, AppUserRow,
+} from './utils/supabaseService';
 
 interface Signature {
   userId: string;
@@ -17,6 +21,11 @@ interface Impacts {
   timeline: string;
   costs: string;
   knowledge: string;
+}
+
+interface ImpactedFlowEntry {
+  flow: string;
+  version: string;
 }
 
 interface CR {
@@ -50,6 +59,7 @@ interface CR {
   listOfChanges?: string;
   impactedFlow?: string;
   impactedFlowVersion?: string;
+  impactedFlows?: ImpactedFlowEntry[];
   implementationDate?: string;
   newFlowVersion?: string;
   testDate?: string;
@@ -80,8 +90,7 @@ interface CreateFormData {
   communicationRequired: string;
   justificationOfChange: string;
   listOfChanges: string;
-  impactedFlow: string;
-  impactedFlowVersion: string;
+  impactedFlows: ImpactedFlowEntry[];
   stakeholders: string[];
   impactTimeline: string;
   impactCosts: string;
@@ -134,6 +143,13 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [newProjectCode, setNewProjectCode] = useState('');
   const [projectError, setProjectError] = useState('');
 
+  // --- Stakeholders (app users) ---
+  const [appUsers, setAppUsers] = useState<AppUserRow[]>([]);
+  const [showManageStakeholders, setShowManageStakeholders] = useState(false);
+  const [newStakeholderUsername, setNewStakeholderUsername] = useState('');
+  const [newStakeholderDisplayName, setNewStakeholderDisplayName] = useState('');
+  const [stakeholderError, setStakeholderError] = useState('');
+
   // --- Online signature (typed name + confirmation checkbox) ---
   const [signatureConfirmed, setSignatureConfirmed] = useState(false);
 
@@ -156,8 +172,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     communicationRequired: 'No',
     justificationOfChange: '',
     listOfChanges: '',
-    impactedFlow: '',
-    impactedFlowVersion: '',
+    impactedFlows: [{ flow: '', version: '' }],
     stakeholders: [],
     impactTimeline: 'TBD',
     impactCosts: 'TBD',
@@ -168,13 +183,15 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     const initializeApp = async () => {
       setLoading(true);
 
-      const [SupabaseData, projectRows, storedLogs] = await Promise.all([
+      const [SupabaseData, projectRows, storedLogs, userRows] = await Promise.all([
         loadFromSupabase(),
         loadProjects(),
         loadAuditLogs(currentUser),
+        loadAppUsers(),
       ]);
 
       setAuditLogs(storedLogs);
+      setAppUsers(userRows || []);
 
       if (projectRows && projectRows.length > 0) {
         const projectMap: { [key: string]: string } = {};
@@ -234,6 +251,10 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setTestDateInput(selectedCR?.testDate || '');
     setTestCommentsInput(selectedCR?.testComments || '');
   }, [selectedCR]);
+
+  // Derived from Supabase-loaded app users (replaces the old hardcoded users.ts lists)
+  const USER_NAMES: { [key: string]: string } = Object.fromEntries(appUsers.map(u => [u.username, u.displayName]));
+  const AVAILABLE_STAKEHOLDERS: string[] = appUsers.map(u => u.username);
 
   const generateCRId = (project: string): string => {
     const prefix = projects[project] || 'GEN';
@@ -377,6 +398,47 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }));
   };
 
+  // --- Impacted Flows (multi-entry) ---
+  const handleImpactedFlowChange = (index: number, field: 'flow' | 'version', value: string, isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditFormData(prev => {
+        if (!prev) return prev;
+        const updated = [...prev.impactedFlows];
+        updated[index] = { ...updated[index], [field]: value };
+        return { ...prev, impactedFlows: updated };
+      });
+    } else {
+      setFormData(prev => {
+        const updated = [...prev.impactedFlows];
+        updated[index] = { ...updated[index], [field]: value };
+        return { ...prev, impactedFlows: updated };
+      });
+    }
+  };
+
+  const handleAddImpactedFlow = (isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditFormData(prev => prev ? { ...prev, impactedFlows: [...prev.impactedFlows, { flow: '', version: '' }] } : prev);
+    } else {
+      setFormData(prev => ({ ...prev, impactedFlows: [...prev.impactedFlows, { flow: '', version: '' }] }));
+    }
+  };
+
+  const handleRemoveImpactedFlow = (index: number, isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditFormData(prev => {
+        if (!prev) return prev;
+        const updated = prev.impactedFlows.filter((_, i) => i !== index);
+        return { ...prev, impactedFlows: updated.length > 0 ? updated : [{ flow: '', version: '' }] };
+      });
+    } else {
+      setFormData(prev => {
+        const updated = prev.impactedFlows.filter((_, i) => i !== index);
+        return { ...prev, impactedFlows: updated.length > 0 ? updated : [{ flow: '', version: '' }] };
+      });
+    }
+  };
+
   const logActivity = (crId: string, action: string, details: string) => {
     const log: AuditLog = {
       id: `LOG-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -473,6 +535,53 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     }
   };
 
+  // --- Stakeholders (app users) management ---
+  const handleAddStakeholder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStakeholderError('');
+
+    const username = newStakeholderUsername.trim().toLowerCase();
+    const displayName = newStakeholderDisplayName.trim();
+
+    if (!username || !displayName) {
+      setStakeholderError('Merci de renseigner un identifiant et un nom affiché.');
+      return;
+    }
+    if (!/^[a-z0-9.]{2,40}$/.test(username)) {
+      setStakeholderError("L'identifiant doit être en minuscules (lettres, chiffres, points), ex: john.doe");
+      return;
+    }
+    if (appUsers.some(u => u.username === username)) {
+      setStakeholderError('Cet identifiant existe déjà.');
+      return;
+    }
+
+    const ok = await addStakeholder(username, displayName);
+    if (ok) {
+      setAppUsers(prev => [...prev, { username, displayName }]);
+      setNewStakeholderUsername('');
+      setNewStakeholderDisplayName('');
+      setSuccessMessage(`✅ ${displayName} ajouté(e) comme stakeholder !`);
+      setTimeout(() => setSuccessMessage(''), 2000);
+    } else {
+      setStakeholderError("Erreur lors de l'ajout (vérifie les droits RLS sur app_users).");
+    }
+  };
+
+  const handleDeleteStakeholder = async (username: string) => {
+    const user = appUsers.find(u => u.username === username);
+    if (!window.confirm(`Supprimer ${user?.displayName || username} ? Cette personne ne pourra plus se connecter.`)) return;
+
+    const ok = await deleteStakeholder(username);
+    if (ok) {
+      setAppUsers(prev => prev.filter(u => u.username !== username));
+      setSuccessMessage(`✅ ${user?.displayName || username} supprimé(e) !`);
+    } else {
+      setSuccessMessage('❌ Échec de la suppression.');
+    }
+    setTimeout(() => setSuccessMessage(''), 2000);
+  };
+
   const handleCreateCR = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -519,8 +628,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       communicationRequired: formData.communicationRequired,
       justificationOfChange: formData.justificationOfChange,
       listOfChanges: formData.listOfChanges,
-      impactedFlow: formData.impactedFlow,
-      impactedFlowVersion: formData.impactedFlowVersion,
+      impactedFlows: formData.impactedFlows.filter(f => f.flow.trim() !== ''),
       stakeholders: allStakeholders,
     };
 
@@ -544,8 +652,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       communicationRequired: 'No',
       justificationOfChange: '',
       listOfChanges: '',
-      impactedFlow: '',
-      impactedFlowVersion: '',
+      impactedFlows: [{ flow: '', version: '' }],
       stakeholders: [],
       impactTimeline: 'TBD',
       impactCosts: 'TBD',
@@ -652,8 +759,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       communicationRequired: cr.communicationRequired || 'No',
       justificationOfChange: cr.justificationOfChange || '',
       listOfChanges: cr.listOfChanges || '',
-      impactedFlow: cr.impactedFlow || '',
-      impactedFlowVersion: cr.impactedFlowVersion || '',
+      impactedFlows: (cr.impactedFlows && cr.impactedFlows.length > 0)
+        ? cr.impactedFlows
+        : (cr.impactedFlow ? [{ flow: cr.impactedFlow, version: cr.impactedFlowVersion || '' }] : [{ flow: '', version: '' }]),
       stakeholders: cr.stakeholders || [],
       impactTimeline: cr.impacts?.timeline || 'TBD',
       impactCosts: cr.impacts?.costs || 'TBD',
@@ -706,8 +814,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       communicationRequired: editFormData.communicationRequired,
       justificationOfChange: editFormData.justificationOfChange,
       listOfChanges: editFormData.listOfChanges,
-      impactedFlow: editFormData.impactedFlow,
-      impactedFlowVersion: editFormData.impactedFlowVersion,
+      impactedFlows: editFormData.impactedFlows.filter(f => f.flow.trim() !== ''),
       stakeholders: editFormData.stakeholders,
     };
 
@@ -902,6 +1009,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
           <button className="btn-activity" onClick={() => setShowManageProjects(true)}>
             ⚙️ Projects
           </button>
+          {currentUser === 'christophe' && (
+            <button className="btn-activity" onClick={() => setShowManageStakeholders(true)}>
+              👤 Stakeholders
+            </button>
+          )}
           <button className="btn-create" onClick={() => setShowCreateModal(true)}>
             Create CR
           </button>
@@ -1090,7 +1202,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 </div>
               )}
 
-              {(selectedCR.justificationOfChange || selectedCR.listOfChanges || selectedCR.impactedFlow || selectedCR.impactedFlowVersion) && (
+              {(selectedCR.justificationOfChange || selectedCR.listOfChanges || (selectedCR.impactedFlows && selectedCR.impactedFlows.length > 0)) && (
                 <div className="detail-row">
                   <label>Change Details</label>
                   <div className="change-details-grid">
@@ -1102,13 +1214,17 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                       <label>List of Changes</label>
                       <p>{selectedCR.listOfChanges || 'N/A'}</p>
                     </div>
-                    <div className="detail-item">
-                      <label>Impacted Flow</label>
-                      <p>{selectedCR.impactedFlow || 'N/A'}</p>
-                    </div>
-                    <div className="detail-item">
-                      <label>Impacted Flow Version</label>
-                      <p>{selectedCR.impactedFlowVersion || 'N/A'}</p>
+                    <div className="detail-item" style={{ gridColumn: '1 / -1' }}>
+                      <label>Impacted Flow(s)</label>
+                      {(selectedCR.impactedFlows && selectedCR.impactedFlows.length > 0) ? (
+                        <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                          {selectedCR.impactedFlows.map((f, idx) => (
+                            <li key={idx}>{f.flow}{f.version ? ` (v${f.version})` : ''}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>N/A</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1517,6 +1633,77 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         </div>
       )}
 
+      {showManageStakeholders && (
+        <div className="modal-overlay" onClick={() => setShowManageStakeholders(false)}>
+          <div className="modal-content" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>👤 Manage Stakeholders</h2>
+              <button className="btn-close" onClick={() => setShowManageStakeholders(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: '20px' }}>
+                {appUsers.map(u => (
+                  <div
+                    key={u.username}
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '10px 12px', marginBottom: '8px',
+                      background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px',
+                    }}
+                  >
+                    <span>
+                      <strong>{u.displayName}</strong>{' '}
+                      <span style={{ color: '#6b7280', fontSize: '12px' }}>({u.username})</span>
+                    </span>
+                    <button
+                      onClick={() => handleDeleteStakeholder(u.username)}
+                      style={{
+                        background: 'none', border: '1px solid #ef4444', color: '#ef4444',
+                        borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer',
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                ))}
+                {appUsers.length === 0 && (
+                  <p style={{ color: '#9ca3af', fontSize: '14px' }}>No stakeholders yet.</p>
+                )}
+              </div>
+
+              <form onSubmit={handleAddStakeholder}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                  Add a new stakeholder
+                </label>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                  <input
+                    type="text"
+                    placeholder="Identifiant (ex: john.doe)"
+                    value={newStakeholderUsername}
+                    onChange={(e) => setNewStakeholderUsername(e.target.value.toLowerCase())}
+                    style={{ flex: 1, padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Nom affiché (ex: John Doe)"
+                    value={newStakeholderDisplayName}
+                    onChange={(e) => setNewStakeholderDisplayName(e.target.value)}
+                    style={{ flex: 1, padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                  />
+                </div>
+                {stakeholderError && <div className="error-message" style={{ marginBottom: '10px' }}>{stakeholderError}</div>}
+                <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
+                  La personne définira elle-même son mot de passe à sa première connexion.
+                </p>
+                <button type="submit" className="btn-submit" style={{ width: '100%' }}>
+                  + Add Stakeholder
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showEditModal && editFormData && selectedCR && (
         <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
           <div className="modal-content create-modal" onClick={(e) => e.stopPropagation()}>
@@ -1626,23 +1813,42 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 </div>
 
                 <div className="form-row">
-                  <div className="form-group">
-                    <label>Impacted Flow</label>
-                    <input
-                      type="text"
-                      name="impactedFlow"
-                      value={editFormData.impactedFlow}
-                      onChange={handleEditFormChange}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Impacted Flow Version</label>
-                    <input
-                      type="text"
-                      name="impactedFlowVersion"
-                      value={editFormData.impactedFlowVersion}
-                      onChange={handleEditFormChange}
-                    />
+                  <div className="form-group full">
+                    <label>Impacted Flow(s)</label>
+                    {editFormData.impactedFlows.map((entry, idx) => (
+                      <div key={idx} style={{ display: 'flex', gap: '10px', marginBottom: '8px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          placeholder="e.g. Screen_Sub_Case_Intake_Core"
+                          value={entry.flow}
+                          onChange={(e) => handleImpactedFlowChange(idx, 'flow', e.target.value, true)}
+                          style={{ flex: 2 }}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Version (e.g. V4)"
+                          value={entry.version}
+                          onChange={(e) => handleImpactedFlowChange(idx, 'version', e.target.value, true)}
+                          style={{ flex: 1 }}
+                        />
+                        {editFormData.impactedFlows.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImpactedFlow(idx, true)}
+                            style={{ background: 'none', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '4px', padding: '6px 10px', cursor: 'pointer' }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => handleAddImpactedFlow(true)}
+                      style={{ background: 'none', border: '1px dashed #9ca3af', color: '#6b7280', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontSize: '13px' }}
+                    >
+                      + Add another flow
+                    </button>
                   </div>
                 </div>
 
@@ -1721,12 +1927,21 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                     <label>The Signatory</label>
                     <div className="stakeholder-list">
                       {AVAILABLE_STAKEHOLDERS.map(stakeholder => (
-                        <label key={stakeholder} className="checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={editFormData.stakeholders.includes(stakeholder)}
-                            onChange={() => handleEditStakeholderToggle(stakeholder)}
-                          />
+                        <label
+                          key={stakeholder}
+                          className="checkbox-label"
+                          onClick={() => handleEditStakeholderToggle(stakeholder)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            cursor: 'pointer',
+                            padding: '4px 0',
+                          }}
+                        >
+                          <span style={{ fontSize: '18px', lineHeight: 1 }}>
+                            {editFormData.stakeholders.includes(stakeholder) ? '●' : '○'}
+                          </span>
                           {USER_NAMES[stakeholder] || stakeholder}
                         </label>
                       ))}
@@ -1874,25 +2089,42 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 </div>
 
                 <div className="form-row">
-                  <div className="form-group">
-                    <label>Impacted Flow</label>
-                    <input
-                      type="text"
-                      name="impactedFlow"
-                      value={formData.impactedFlow}
-                      onChange={handleFormChange}
-                      placeholder="e.g. Screen_Sub_Case_Intake_Core"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Impacted Flow Version</label>
-                    <input
-                      type="text"
-                      name="impactedFlowVersion"
-                      value={formData.impactedFlowVersion}
-                      onChange={handleFormChange}
-                      placeholder="e.g. V4"
-                    />
+                  <div className="form-group full">
+                    <label>Impacted Flow(s)</label>
+                    {formData.impactedFlows.map((entry, idx) => (
+                      <div key={idx} style={{ display: 'flex', gap: '10px', marginBottom: '8px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          placeholder="e.g. Screen_Sub_Case_Intake_Core"
+                          value={entry.flow}
+                          onChange={(e) => handleImpactedFlowChange(idx, 'flow', e.target.value)}
+                          style={{ flex: 2 }}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Version (e.g. V4)"
+                          value={entry.version}
+                          onChange={(e) => handleImpactedFlowChange(idx, 'version', e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        {formData.impactedFlows.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImpactedFlow(idx)}
+                            style={{ background: 'none', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '4px', padding: '6px 10px', cursor: 'pointer' }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => handleAddImpactedFlow()}
+                      style={{ background: 'none', border: '1px dashed #9ca3af', color: '#6b7280', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontSize: '13px' }}
+                    >
+                      + Add another flow
+                    </button>
                   </div>
                 </div>
 
