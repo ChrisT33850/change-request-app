@@ -28,6 +28,13 @@ interface ImpactedFlowEntry {
   version: string;
 }
 
+interface TaskLine {
+  task: string;
+  people: number;
+  qty: number;
+  status: 'Closed' | 'In Progress' | 'Not Open';
+}
+
 interface CR {
   id: string;
   title: string;
@@ -64,6 +71,8 @@ interface CR {
   newFlowVersion?: string;
   testDate?: string;
   testComments?: string;
+  actualBudgetTasks?: TaskLine[];
+  actualBudgetRate?: number;
   stakeholders?: string[];
   workflow?: {
     awaitingValidation?: {
@@ -122,6 +131,14 @@ const DEFAULT_PROJECTS: { [key: string]: string } = {
 };
 
 const IMPACT_OPTIONS = ['Yes', 'No', 'NA', 'TBD'];
+const DEFAULT_BUDGET_RATE = 40;
+const TASK_STATUS_OPTIONS: TaskLine['status'][] = ['Not Open', 'In Progress', 'Closed'];
+
+// Actual Budget = sum of (hours x hourly rate) across every task line
+const computeActualBudget = (cr: CR): number => {
+  const rate = cr.actualBudgetRate ?? DEFAULT_BUDGET_RATE;
+  return (cr.actualBudgetTasks || []).reduce((sum, t) => sum + (t.qty || 0) * rate, 0);
+};
 
 const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [changeRequests, setChangeRequests] = useState<CR[]>([]);
@@ -158,6 +175,10 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [implFlowVersionInput, setImplFlowVersionInput] = useState('');
   const [testDateInput, setTestDateInput] = useState('');
   const [testCommentsInput, setTestCommentsInput] = useState('');
+
+  // --- Actual Budget task breakdown (Implementation stage) ---
+  const [taskLines, setTaskLines] = useState<TaskLine[]>([]);
+  const [budgetRate, setBudgetRate] = useState<number>(DEFAULT_BUDGET_RATE);
 
   const [formData, setFormData] = useState<CreateFormData>({
     title: '',
@@ -250,6 +271,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setImplFlowVersionInput(selectedCR?.newFlowVersion || '');
     setTestDateInput(selectedCR?.testDate || '');
     setTestCommentsInput(selectedCR?.testComments || '');
+    setTaskLines(selectedCR?.actualBudgetTasks || []);
+    setBudgetRate(selectedCR?.actualBudgetRate ?? DEFAULT_BUDGET_RATE);
   }, [selectedCR]);
 
   // Derived from Supabase-loaded app users (replaces the old hardcoded users.ts lists)
@@ -466,7 +489,13 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
   const handleSaveImplementation = async () => {
     if (!selectedCR) return;
-    const updated: CR = { ...selectedCR, implementationDate: implDateInput, newFlowVersion: implFlowVersionInput };
+    const updated: CR = {
+      ...selectedCR,
+      implementationDate: implDateInput,
+      newFlowVersion: implFlowVersionInput,
+      actualBudgetTasks: taskLines,
+      actualBudgetRate: budgetRate,
+    };
     const updatedCRs = changeRequests.map(cr => cr.id === updated.id ? updated : cr);
     setChangeRequests(updatedCRs);
     setSelectedCR(updated);
@@ -474,6 +503,36 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     setSuccessMessage('✅ Implementation details saved!');
     await persistCR(updated);
     setTimeout(() => setSuccessMessage(''), 2000);
+  };
+
+  // --- Actual Budget task breakdown handlers ---
+  const handleTaskLineChange = (index: number, field: keyof TaskLine, value: string) => {
+    setTaskLines(prev => {
+      const updated = [...prev];
+      const current = { ...updated[index] };
+      if (field === 'people' || field === 'qty') {
+        (current[field] as number) = parseFloat(value) || 0;
+      } else if (field === 'status') {
+        current.status = value as TaskLine['status'];
+      } else {
+        current.task = value;
+      }
+      updated[index] = current;
+      return updated;
+    });
+  };
+
+  const handleAddTaskLine = () => {
+    setTaskLines(prev => [...prev, { task: '', people: 1, qty: 0, status: 'Not Open' }]);
+  };
+
+  const handleRemoveTaskLine = (index: number) => {
+    setTaskLines(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleBudgetRateChange = (value: string) => {
+    if (currentUser !== 'christophe') return;
+    setBudgetRate(parseFloat(value) || 0);
   };
 
   const handleSaveTesting = async () => {
@@ -1040,7 +1099,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                 <th>Requester</th>
                 <th>Status</th>
                 <th>Signatures</th>
-                <th>Budget</th>
+                <th>Est. Budget</th>
                 <th>Days</th>
                 <th>Actions</th>
               </tr>
@@ -1113,8 +1172,12 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
           <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div>
-                <h2>{selectedCR.id}</h2>
-                <p className="modal-subtitle">{selectedCR.title}</p>
+                <h2>
+                  {selectedCR.id} — {selectedCR.project}
+                </h2>
+                <p className="modal-subtitle">
+                  {selectedCR.title} <span style={{ opacity: 0.7 }}>· Requested by {selectedCR.requesterName}</span>
+                </p>
               </div>
               <button className="btn-close" onClick={closeCRModal}>✕</button>
             </div>
@@ -1123,20 +1186,11 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
               {renderStepper(selectedCR)}
 
               <div className="detail-row">
-                <label>Project</label>
-                <p>{selectedCR.project}</p>
-              </div>
-
-              <div className="detail-row">
                 <label>Description</label>
                 <p>{selectedCR.description}</p>
               </div>
 
               <div className="detail-grid">
-                <div className="detail-item">
-                  <label>Requester</label>
-                  <p>{selectedCR.requesterName}</p>
-                </div>
                 <div className="detail-item">
                   <label>Status</label>
                   <div className="status-row">
@@ -1162,12 +1216,12 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                   </div>
                 </div>
                 <div className="detail-item">
-                  <label>Budget</label>
+                  <label>Estimated Budget</label>
                   <p>€{selectedCR.impact.budgetEur.toLocaleString()}</p>
                 </div>
                 <div className="detail-item">
-                  <label>Days</label>
-                  <p>{selectedCR.impact.delayDays} days</p>
+                  <label>Actual Budget</label>
+                  <p>€{computeActualBudget(selectedCR).toLocaleString()}</p>
                 </div>
               </div>
 
@@ -1387,6 +1441,119 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                       />
                     </div>
                   </div>
+
+                  <div style={{ marginTop: '4px', marginBottom: '12px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
+                      Actual Budget — Task Breakdown
+                    </label>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>Hourly rate (PU):</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={budgetRate}
+                        disabled={currentUser !== 'christophe'}
+                        onChange={(e) => handleBudgetRateChange(e.target.value)}
+                        style={{ width: '90px', padding: '4px 6px', border: '1px solid #ccc', borderRadius: '4px' }}
+                      />
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>€/hour{currentUser !== 'christophe' ? ' (editable by Christophe only)' : ''}</span>
+                    </div>
+
+                    <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: '6px', overflow: 'hidden' }}>
+                      <thead>
+                        <tr style={{ background: '#dbeafe' }}>
+                          <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: '12px' }}>Task</th>
+                          <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: '12px', width: '90px' }}>People</th>
+                          <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: '12px', width: '90px' }}>Qty (h)</th>
+                          <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: '12px', width: '130px' }}>Status</th>
+                          <th style={{ textAlign: 'right', padding: '6px 8px', fontSize: '12px', width: '90px' }}>Cost</th>
+                          <th style={{ width: '32px' }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {taskLines.map((line, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                            <td style={{ padding: '4px 6px' }}>
+                              <input
+                                type="text"
+                                placeholder="Task description"
+                                value={line.task}
+                                onChange={(e) => handleTaskLineChange(idx, 'task', e.target.value)}
+                                style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+                              />
+                            </td>
+                            <td style={{ padding: '4px 6px' }}>
+                              <input
+                                type="number"
+                                min={0}
+                                value={line.people}
+                                onChange={(e) => handleTaskLineChange(idx, 'people', e.target.value)}
+                                style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+                              />
+                            </td>
+                            <td style={{ padding: '4px 6px' }}>
+                              <input
+                                type="number"
+                                min={0}
+                                step={0.5}
+                                value={line.qty}
+                                onChange={(e) => handleTaskLineChange(idx, 'qty', e.target.value)}
+                                style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+                              />
+                            </td>
+                            <td style={{ padding: '4px 6px' }}>
+                              <select
+                                value={line.status}
+                                onChange={(e) => handleTaskLineChange(idx, 'status', e.target.value)}
+                                style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+                              >
+                                {TASK_STATUS_OPTIONS.map(opt => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td style={{ padding: '4px 6px', textAlign: 'right', fontSize: '13px', fontWeight: 600 }}>
+                              €{((line.qty || 0) * budgetRate).toLocaleString()}
+                            </td>
+                            <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTaskLine(idx)}
+                                title="Remove this task"
+                                style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '16px' }}
+                              >
+                                🗑️
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      {taskLines.length > 0 && (
+                        <tfoot>
+                          <tr>
+                            <td colSpan={4} style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 700, fontSize: '13px' }}>
+                              Total Actual Budget:
+                            </td>
+                            <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 700, fontSize: '13px' }}>
+                              €{taskLines.reduce((sum, t) => sum + (t.qty || 0) * budgetRate, 0).toLocaleString()}
+                            </td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+
+                    <button
+                      type="button"
+                      onClick={handleAddTaskLine}
+                      style={{ marginTop: '10px', background: 'none', border: '1px dashed #2196f3', color: '#2196f3', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontSize: '13px' }}
+                    >
+                      + Add task line
+                    </button>
+                  </div>
+
                   <button className="btn-sign" onClick={handleSaveImplementation}>
                     💾 Save Implementation Details
                   </button>
@@ -1745,7 +1912,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Budget (€)</label>
+                    <label>Estimated Budget (€)</label>
                     <input
                       type="number"
                       name="budgetEur"
@@ -2015,7 +2182,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Budget (€)</label>
+                    <label>Estimated Budget (€)</label>
                     <input
                       type="number"
                       name="budgetEur"
