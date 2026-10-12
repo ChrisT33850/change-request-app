@@ -1,9 +1,3 @@
-Voici les deux fichiers en texte brut, directement copiables :
-
----
-
-**`utils/users.ts`**
-
 ```typescript
 // The list of users/stakeholders now lives in Supabase (table: app_users)
 // and is loaded at runtime via utils/supabaseService.ts
