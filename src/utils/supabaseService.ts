@@ -1,4 +1,32 @@
+Voici les deux fichiers en texte brut, directement copiables :
+
+---
+
+**`utils/users.ts`**
+
+```typescript
+// The list of users/stakeholders now lives in Supabase (table: app_users)
+// and is loaded at runtime via utils/supabaseService.ts
+// (loadAppUsers / addStakeholder / deleteStakeholder).
+// This file only keeps the shared type.
+
+export interface AppUser {
+  username: string;
+  displayName: string;
+}
+```
+
+---
+
+**`utils/supabaseService.ts`**
+
+```typescript
 import { supabase } from './supabaseClient';
+
+export interface ImpactedFlowEntry {
+  flow: string;
+  version: string;
+}
 
 export interface CR {
   id: string;
@@ -19,6 +47,7 @@ export interface CR {
   listOfChanges?: string;
   impactedFlow?: string;
   impactedFlowVersion?: string;
+  impactedFlows?: ImpactedFlowEntry[];
   implementationDate?: string;
   newFlowVersion?: string;
   testDate?: string;
@@ -51,8 +80,7 @@ const toRow = (cr: CR) => ({
     communicationRequired: cr.communicationRequired ?? 'No',
     justificationOfChange: cr.justificationOfChange ?? '',
     listOfChanges: cr.listOfChanges ?? '',
-    impactedFlow: cr.impactedFlow ?? '',
-    impactedFlowVersion: cr.impactedFlowVersion ?? '',
+    impactedFlows: cr.impactedFlows ?? [],
     implementationDate: cr.implementationDate ?? '',
     newFlowVersion: cr.newFlowVersion ?? '',
     testDate: cr.testDate ?? '',
@@ -84,6 +112,12 @@ const fromRow = (row: any): CR => {
     listOfChanges: extra.listOfChanges,
     impactedFlow: extra.impactedFlow,
     impactedFlowVersion: extra.impactedFlowVersion,
+    // Backward-compat: old CRs only have a single flow/version pair stored
+    // directly in "extra" (impactedFlow / impactedFlowVersion). New CRs
+    // store an array under "impactedFlows".
+    impactedFlows: extra.impactedFlows && extra.impactedFlows.length > 0
+      ? extra.impactedFlows
+      : (extra.impactedFlow ? [{ flow: extra.impactedFlow, version: extra.impactedFlowVersion || '' }] : []),
     implementationDate: extra.implementationDate,
     newFlowVersion: extra.newFlowVersion,
     testDate: extra.testDate,
@@ -227,6 +261,68 @@ export const deleteProject = async (name: string): Promise<boolean> => {
   }
 };
 
+// --- Stakeholders / App Users (manageable from the app) ---
+
+export interface AppUserRow {
+  username: string;
+  displayName: string;
+}
+
+export const loadAppUsers = async (): Promise<AppUserRow[] | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('app_users')
+      .select('username, display_name')
+      .order('display_name');
+
+    if (error) {
+      console.error('Load app users error:', error);
+      return null;
+    }
+    if (!data || data.length === 0) return null;
+
+    return data.map(row => ({ username: row.username, displayName: row.display_name }));
+  } catch (error) {
+    console.error('Error loading app users:', error);
+    return null;
+  }
+};
+
+// New stakeholder is created with password_hash = NULL on purpose:
+// they'll set their own password on first login, via the existing
+// setup flow (hasPasswordSet -> false -> setInitialPassword).
+export const addStakeholder = async (username: string, displayName: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('app_users')
+      .insert({ username, display_name: displayName, password_hash: null });
+
+    if (error) {
+      console.error('Add stakeholder error:', error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('Error adding stakeholder:', error);
+    return false;
+  }
+};
+
+export const deleteStakeholder = async (username: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase.from('app_users').delete().eq('username', username);
+
+    if (error) {
+      console.error('Delete stakeholder error:', error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('Error deleting stakeholder:', error);
+    return false;
+  }
+};
+
 // --- Audit log (persisted so "My Activity" survives a page refresh) ---
 
 export interface AuditLogRow {
@@ -291,3 +387,4 @@ export const loadAuditLogs = async (userId: string): Promise<AuditLogRow[]> => {
     return [];
   }
 };
+```
